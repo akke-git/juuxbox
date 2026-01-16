@@ -1,0 +1,26 @@
+# JuuxBox Hi-Fi Music Player Dependencies
+# Python 3.11+
+
+# UI Framework
+PySide6>=6.6.0
+
+# Audio Engine
+miniaudio>=1.1.1
+
+# Metadata Parser
+mutagen>=1.47.0
+
+# Database (included in Python stdlib, but listed for clarity)
+# sqlite3 - built-in
+
+# Development & Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-qt>=4.2.0
+
+# Logging (enhanced)
+colorlog>=6.7.0
+
+# Optional: For future enhancements
+# python-vlc>=3.0.0  # Alternative audio backend
+# watchdog>=3.0.0    # File system monitoring for auto-scan
