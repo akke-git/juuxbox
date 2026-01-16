@@ -59,6 +59,46 @@ class TrackRepository:
         conn.close()
         return rows
 
+    @staticmethod
+    def delete_by_file_path(file_path: str) -> bool:
+        """파일 경로로 트랙 삭제"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM tracks WHERE file_path = ?", (file_path,))
+        conn.commit()
+        deleted = cursor.rowcount > 0
+        conn.close()
+        if deleted:
+            logger.info(f"트랙 삭제: {file_path}")
+        return deleted
+
+    @staticmethod
+    def delete_by_file_paths(file_paths: list) -> int:
+        """여러 트랙 삭제 (배치)"""
+        if not file_paths:
+            return 0
+        conn = get_connection()
+        cursor = conn.cursor()
+        placeholders = ",".join("?" * len(file_paths))
+        cursor.execute(f"DELETE FROM tracks WHERE file_path IN ({placeholders})", file_paths)
+        conn.commit()
+        deleted_count = cursor.rowcount
+        conn.close()
+        logger.info(f"선택 트랙 삭제: {deleted_count}개")
+        return deleted_count
+
+    @staticmethod
+    def delete_all() -> int:
+        """모든 트랙 삭제"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM tracks")
+        conn.commit()
+        deleted_count = cursor.rowcount
+        conn.close()
+        logger.info(f"전체 트랙 삭제: {deleted_count}개")
+        return deleted_count
+
 
 class PlaylistRepository:
     """플레이리스트 CRUD"""

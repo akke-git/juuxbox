@@ -85,6 +85,11 @@ class IntegratedMainWindow(MainWindow):
         
         # 사이드바: 폴더 추가
         self._sidebar.add_folder_clicked.connect(self._on_folder_added)
+
+        # 곡 목록: 삭제
+        self._song_list.song_delete_requested.connect(self._on_song_delete)
+        self._song_list.songs_delete_requested.connect(self._on_songs_delete)
+        self._song_list.all_songs_delete_requested.connect(self._on_all_songs_delete)
         
     def _on_song_selected(self, file_path: str):
         """곡 선택 시 재생"""
@@ -205,7 +210,7 @@ class IntegratedMainWindow(MainWindow):
         """곡 목록 UI 새로고침"""
         self._song_list.clear_songs()
         tracks = self._controller.load_library()
-        
+
         for i, track in enumerate(tracks):
             duration = track.get('duration_seconds', 0)
             duration_str = f"{int(duration//60)}:{int(duration%60):02d}"
@@ -218,6 +223,58 @@ class IntegratedMainWindow(MainWindow):
                 duration=duration_str,
                 file_path=track.get('file_path', '')
             )
+
+    def _on_song_delete(self, file_path: str):
+        """곡 삭제"""
+        from PySide6.QtWidgets import QMessageBox
+
+        reply = QMessageBox.question(
+            self,
+            "곡 삭제",
+            "선택한 곡을 라이브러리에서 삭제하시겠습니까?\n(파일은 삭제되지 않습니다)",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            TrackRepository.delete_by_file_path(file_path)
+            print(f"🗑️ 삭제됨: {file_path}")
+            self._refresh_song_list()
+
+    def _on_songs_delete(self, file_paths: list):
+        """선택된 곡들 삭제"""
+        from PySide6.QtWidgets import QMessageBox
+
+        count = len(file_paths)
+        reply = QMessageBox.question(
+            self,
+            "선택 삭제",
+            f"선택한 {count}곡을 라이브러리에서 삭제하시겠습니까?\n(파일은 삭제되지 않습니다)",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            deleted = TrackRepository.delete_by_file_paths(file_paths)
+            print(f"🗑️ 선택 삭제: {deleted}개")
+            self._refresh_song_list()
+
+    def _on_all_songs_delete(self):
+        """전체 곡 삭제"""
+        from PySide6.QtWidgets import QMessageBox
+
+        reply = QMessageBox.question(
+            self,
+            "전체 삭제",
+            "모든 곡을 라이브러리에서 삭제하시겠습니까?\n(파일은 삭제되지 않습니다)",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            count = TrackRepository.delete_all()
+            print(f"🗑️ 전체 삭제: {count}개")
+            self._refresh_song_list()
 
 
 def main():
