@@ -54,6 +54,7 @@ class LibraryScanner:
                 "title": self._get_tag(audio, "title", file_path.stem),
                 "artist": self._get_tag(audio, "artist", "Unknown"),
                 "album": self._get_tag(audio, "album", "Unknown"),
+                "folder_name": file_path.parent.name,  # 폴더명
                 "duration_seconds": audio.info.length if audio.info else 0,
                 "sample_rate": getattr(audio.info, "sample_rate", 0),
                 "bit_depth": getattr(audio.info, "bits_per_sample", 16),

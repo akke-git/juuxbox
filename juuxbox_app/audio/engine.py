@@ -1,10 +1,11 @@
 """
 Audio Engine
 ============
-miniaudio를 활용한 WASAPI Exclusive 모드 오디오 재생 엔진
+miniaudio를 활용한 오디오 재생 엔진
 """
 
 import logging
+import threading
 from typing import Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -33,122 +34,167 @@ class AudioInfo:
 
 class AudioEngine:
     """
-    WASAPI Exclusive 모드 오디오 엔진
+    오디오 재생 엔진
     
     Features:
-    - Bit-Perfect 출력 (WASAPI Exclusive)
-    - Gapless 재생 지원
+    - miniaudio 기반 재생
     - 실시간 오디오 정보 피드백
     """
 
     def __init__(self, device_name: Optional[str] = None):
-        """
-        Args:
-            device_name: 출력 장치 이름 (None이면 기본 장치)
-        """
         self._device_name = device_name
         self._state = PlaybackState.STOPPED
         self._current_file: Optional[str] = None
         self._audio_info = AudioInfo()
         self._volume: float = 1.0
         
+        # 재생 관련
+        self._device: Optional[miniaudio.PlaybackDevice] = None
+        self._stream = None
+        self._playback_thread: Optional[threading.Thread] = None
+        self._stop_flag = threading.Event()
+        
         # 콜백
         self._on_state_change: Optional[Callable[[PlaybackState], None]] = None
         self._on_position_update: Optional[Callable[[float], None]] = None
         self._on_track_end: Optional[Callable[[], None]] = None
         
-        # miniaudio 장치 (나중에 초기화)
-        self._device: Optional[miniaudio.PlaybackDevice] = None
-        
         logger.info(f"AudioEngine 초기화 완료 (장치: {device_name or '기본'})")
 
     @property
     def state(self) -> PlaybackState:
-        """현재 재생 상태"""
         return self._state
 
     @property
     def audio_info(self) -> AudioInfo:
-        """현재 오디오 정보"""
         return self._audio_info
 
     @property
     def volume(self) -> float:
-        """볼륨 (0.0 ~ 1.0)"""
         return self._volume
 
     @volume.setter
     def volume(self, value: float):
-        """볼륨 설정"""
         self._volume = max(0.0, min(1.0, value))
         logger.debug(f"볼륨 설정: {self._volume:.2f}")
 
-    def get_available_devices(self) -> list[str]:
-        """사용 가능한 오디오 장치 목록"""
-        # TODO: miniaudio에서 장치 목록 가져오기
-        devices = []
-        logger.debug(f"사용 가능한 장치: {devices}")
-        return devices
-
     def load(self, file_path: str) -> bool:
-        """
-        오디오 파일 로드
-        
-        Args:
-            file_path: 오디오 파일 경로
+        """오디오 파일 로드"""
+        try:
+            # 기존 재생 중지
+            self.stop()
             
-        Returns:
-            성공 여부
-        """
-        # TODO: 파일 로드 구현
-        logger.info(f"파일 로드: {file_path}")
-        self._current_file = file_path
-        return True
+            # 파일 정보 가져오기
+            info = miniaudio.get_file_info(file_path)
+            self._audio_info = AudioInfo(
+                sample_rate=info.sample_rate,
+                bit_depth=info.sample_width * 8,
+                channels=info.nchannels,
+                duration_seconds=info.duration,
+                position_seconds=0.0
+            )
+            
+            self._current_file = file_path
+            logger.info(f"파일 로드: {file_path} ({info.sample_rate}Hz, {info.nchannels}ch)")
+            return True
+            
+        except Exception as e:
+            logger.error(f"파일 로드 실패: {file_path} - {e}")
+            return False
 
     def play(self) -> bool:
         """재생 시작"""
-        # TODO: 재생 구현
-        self._state = PlaybackState.PLAYING
-        logger.info("재생 시작")
-        return True
+        if not self._current_file:
+            logger.warning("재생할 파일이 없습니다")
+            return False
+        
+        try:
+            # 이미 재생 중이면 중지
+            self.stop()
+            self._stop_flag.clear()
+            
+            # 파일 정보 다시 가져오기
+            info = miniaudio.get_file_info(self._current_file)
+            
+            # 스트림 생성
+            self._stream = miniaudio.stream_file(self._current_file)
+            
+            # 재생 장치 생성 및 시작 (파일 정보 사용)
+            self._device = miniaudio.PlaybackDevice(
+                output_format=miniaudio.SampleFormat.SIGNED16,
+                nchannels=info.nchannels,
+                sample_rate=info.sample_rate
+            )
+            self._device.start(self._stream)
+            
+            self._state = PlaybackState.PLAYING
+            logger.info(f"재생 시작: {self._current_file}")
+            
+            if self._on_state_change:
+                self._on_state_change(self._state)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"재생 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            self._state = PlaybackState.STOPPED
+            return False
 
     def pause(self):
         """일시정지"""
-        # TODO: 일시정지 구현
-        self._state = PlaybackState.PAUSED
-        logger.info("일시정지")
+        if self._device and self._state == PlaybackState.PLAYING:
+            self._device.stop()
+            self._state = PlaybackState.PAUSED
+            logger.info("일시정지")
+            
+            if self._on_state_change:
+                self._on_state_change(self._state)
+
+    def resume(self):
+        """재개"""
+        if self._device and self._state == PlaybackState.PAUSED:
+            self._device.start(self._stream)
+            self._state = PlaybackState.PLAYING
+            logger.info("재생 재개")
+            
+            if self._on_state_change:
+                self._on_state_change(self._state)
 
     def stop(self):
         """정지"""
-        # TODO: 정지 구현
+        self._stop_flag.set()
+        
+        if self._device:
+            try:
+                self._device.stop()
+                self._device.close()
+            except:
+                pass
+            self._device = None
+        
+        self._stream = None
         self._state = PlaybackState.STOPPED
         logger.info("정지")
+        
+        if self._on_state_change:
+            self._on_state_change(self._state)
 
     def seek(self, position_seconds: float):
-        """
-        특정 위치로 이동
-        
-        Args:
-            position_seconds: 이동할 위치 (초)
-        """
-        # TODO: 탐색 구현
-        logger.info(f"탐색: {position_seconds:.1f}초")
+        """특정 위치로 이동 (현재 미지원)"""
+        logger.warning("탐색 기능은 아직 지원되지 않습니다")
 
     def set_on_state_change(self, callback: Callable[[PlaybackState], None]):
-        """상태 변경 콜백 설정"""
         self._on_state_change = callback
 
     def set_on_position_update(self, callback: Callable[[float], None]):
-        """위치 업데이트 콜백 설정"""
         self._on_position_update = callback
 
     def set_on_track_end(self, callback: Callable[[], None]):
-        """트랙 종료 콜백 설정"""
         self._on_track_end = callback
 
     def cleanup(self):
         """리소스 정리"""
         self.stop()
-        if self._device:
-            self._device.close()
         logger.info("AudioEngine 정리 완료")

@@ -35,6 +35,7 @@ def create_tables():
             artist TEXT,
             album TEXT,
             album_artist TEXT,
+            folder_name TEXT,
             track_number INTEGER,
             disc_number INTEGER,
             year INTEGER,

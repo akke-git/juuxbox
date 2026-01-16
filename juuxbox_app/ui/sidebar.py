@@ -7,7 +7,7 @@ Sidebar
 import logging
 from PySide6.QtWidgets import (
     QFrame, QVBoxLayout, QLabel, QPushButton,
-    QListWidget, QListWidgetItem
+    QListWidget, QListWidgetItem, QFileDialog
 )
 from PySide6.QtCore import Signal
 
@@ -28,6 +28,7 @@ class Sidebar(QFrame):
     library_clicked = Signal()
     playlist_selected = Signal(str)  # playlist_id
     settings_clicked = Signal()
+    add_folder_clicked = Signal(str)  # folder_path
 
     def __init__(self):
         super().__init__()
@@ -62,6 +63,24 @@ class Sidebar(QFrame):
         search_btn = QPushButton("🔍 검색")
         search_btn.setFlat(True)
         layout.addWidget(search_btn)
+
+        # 폴더 추가 버튼
+        add_folder_btn = QPushButton("➕ 폴더 추가")
+        add_folder_btn.setFlat(True)
+        add_folder_btn.setStyleSheet("""
+            QPushButton {
+                color: #1DB954;
+                font-weight: bold;
+                padding: 8px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #282828;
+                border-radius: 4px;
+            }
+        """)
+        add_folder_btn.clicked.connect(self._on_add_folder_clicked)
+        layout.addWidget(add_folder_btn)
 
         # 플레이리스트 섹션
         playlist_label = QLabel("플레이리스트")
@@ -106,3 +125,15 @@ class Sidebar(QFrame):
         playlist_id = item.data(100)
         self.playlist_selected.emit(playlist_id)
         logger.debug(f"플레이리스트 선택: {playlist_id}")
+
+    def _on_add_folder_clicked(self):
+        """폴더 추가 버튼 클릭 핸들러"""
+        folder_path = QFileDialog.getExistingDirectory(
+            self,
+            "음악 폴더 선택",
+            "",
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+        )
+        if folder_path:
+            logger.info(f"폴더 선택됨: {folder_path}")
+            self.add_folder_clicked.emit(folder_path)

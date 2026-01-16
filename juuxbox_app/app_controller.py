@@ -69,7 +69,7 @@ class AppController:
         if self._engine.state == PlaybackState.PLAYING:
             self._engine.pause()
         elif self._engine.state == PlaybackState.PAUSED:
-            self._engine.play()
+            self._engine.resume()  # resume 호출
         elif self._engine.state == PlaybackState.STOPPED and self._tracks:
             # 정지 상태에서 첫 곡 재생
             self.play_track_by_index(0)

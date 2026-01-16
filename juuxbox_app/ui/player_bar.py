@@ -28,6 +28,7 @@ class PlayerBar(QFrame):
     # 시그널
     play_clicked = Signal()
     pause_clicked = Signal()
+    stop_clicked = Signal()
     next_clicked = Signal()
     prev_clicked = Signal()
     seek_changed = Signal(int)  # position in seconds
@@ -107,50 +108,66 @@ class PlayerBar(QFrame):
         # 버튼 행
         btn_layout = QHBoxLayout()
         btn_layout.setAlignment(Qt.AlignCenter)
+        btn_layout.setSpacing(12)
 
-        # 셔플
-        shuffle_btn = QPushButton("🔀")
-        shuffle_btn.setFixedSize(32, 32)
-        shuffle_btn.setFlat(True)
-        btn_layout.addWidget(shuffle_btn)
+        # 공통 버튼 스타일
+        ctrl_btn_style = """
+            QPushButton {
+                background-color: transparent;
+                color: #B3B3B3;
+                border: none;
+                font-size: 16px;
+                font-family: 'Segoe UI Symbol', 'Arial';
+            }
+            QPushButton:hover {
+                color: #FFFFFF;
+            }
+        """
 
         # 이전 곡
         prev_btn = QPushButton("⏮")
-        prev_btn.setFixedSize(32, 32)
-        prev_btn.setFlat(True)
+        prev_btn.setFixedSize(40, 40)
+        prev_btn.setStyleSheet(ctrl_btn_style + "QPushButton { font-size: 20px; }")
+        prev_btn.setToolTip("이전 곡 (←)")
         prev_btn.clicked.connect(self.prev_clicked.emit)
         btn_layout.addWidget(prev_btn)
 
-        # 재생/일시정지
+        # 정지
+        self._stop_btn = QPushButton("⏹")
+        self._stop_btn.setFixedSize(40, 40)
+        self._stop_btn.setStyleSheet(ctrl_btn_style + "QPushButton { font-size: 18px; }")
+        self._stop_btn.setToolTip("정지 (S)")
+        self._stop_btn.clicked.connect(self.stop_clicked.emit)
+        btn_layout.addWidget(self._stop_btn)
+
+        # 재생/일시정지 (메인 버튼)
         self._play_btn = QPushButton("▶")
         self._play_btn.setObjectName("PlayButton")
-        self._play_btn.setFixedSize(40, 40)
+        self._play_btn.setFixedSize(52, 52)
         self._play_btn.setStyleSheet("""
             QPushButton#PlayButton {
                 background-color: #1DB954;
-                color: black;
-                border-radius: 20px;
-                font-size: 16px;
+                color: #000000;
+                border-radius: 26px;
+                font-size: 22px;
+                font-family: 'Segoe UI Symbol', 'Arial';
             }
             QPushButton#PlayButton:hover {
                 background-color: #1ed760;
+                transform: scale(1.05);
             }
         """)
+        self._play_btn.setToolTip("재생/일시정지 (Space)")
         self._play_btn.clicked.connect(self.toggle_play)
         btn_layout.addWidget(self._play_btn)
 
         # 다음 곡
         next_btn = QPushButton("⏭")
-        next_btn.setFixedSize(32, 32)
-        next_btn.setFlat(True)
+        next_btn.setFixedSize(40, 40)
+        next_btn.setStyleSheet(ctrl_btn_style + "QPushButton { font-size: 20px; }")
+        next_btn.setToolTip("다음 곡 (→)")
         next_btn.clicked.connect(self.next_clicked.emit)
         btn_layout.addWidget(next_btn)
-
-        # 반복
-        repeat_btn = QPushButton("🔁")
-        repeat_btn.setFixedSize(32, 32)
-        repeat_btn.setFlat(True)
-        btn_layout.addWidget(repeat_btn)
 
         main_layout.addLayout(btn_layout)
 
@@ -162,8 +179,28 @@ class PlayerBar(QFrame):
         progress_layout.addWidget(self._current_time)
 
         self._progress_slider = QSlider(Qt.Horizontal)
-        self._progress_slider.setRange(0, 100)
+        self._progress_slider.setRange(0, 1000)  # 더 세밀한 제어를 위해 1000 단위
         self._progress_slider.setValue(0)
+        self._progress_slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                background: #404040;
+                height: 4px;
+                border-radius: 2px;
+            }
+            QSlider::handle:horizontal {
+                background: #FFFFFF;
+                width: 12px;
+                height: 12px;
+                margin: -4px 0;
+                border-radius: 6px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #1DB954;
+                border-radius: 2px;
+            }
+        """)
+        self._progress_slider.sliderMoved.connect(self._on_slider_moved)
+        self._progress_slider.sliderPressed.connect(self._on_slider_pressed)
         progress_layout.addWidget(self._progress_slider, 1)
 
         self._total_time = QLabel("0:00")
@@ -211,9 +248,11 @@ class PlayerBar(QFrame):
         """재생/일시정지 토글"""
         self._is_playing = not self._is_playing
         if self._is_playing:
+            # 재생 상태 → 일시정지 버튼 표시
             self._play_btn.setText("⏸")
             self.play_clicked.emit()
         else:
+            # 정지/일시정지 상태 → 재생 버튼 표시
             self._play_btn.setText("▶")
             self.pause_clicked.emit()
 
@@ -233,12 +272,26 @@ class PlayerBar(QFrame):
 
     def set_progress(self, current_seconds: int, total_seconds: int):
         """재생 진행률 업데이트"""
+        self._total_seconds = total_seconds
         if total_seconds > 0:
-            progress = int((current_seconds / total_seconds) * 100)
-            self._progress_slider.setValue(progress)
+            progress = int((current_seconds / total_seconds) * 1000)
+            # 슬라이더가 드래그 중이 아닐 때만 업데이트
+            if not self._progress_slider.isSliderDown():
+                self._progress_slider.setValue(progress)
 
         self._current_time.setText(self._format_time(current_seconds))
         self._total_time.setText(self._format_time(total_seconds))
+
+    def _on_slider_moved(self, value: int):
+        """슬라이더 드래그 시"""
+        if hasattr(self, '_total_seconds') and self._total_seconds > 0:
+            seek_seconds = int((value / 1000) * self._total_seconds)
+            self._current_time.setText(self._format_time(seek_seconds))
+            self.seek_changed.emit(seek_seconds)
+
+    def _on_slider_pressed(self):
+        """슬라이더 클릭 시"""
+        pass  # sliderMoved에서 처리
 
     @staticmethod
     def _format_time(seconds: int) -> str:
