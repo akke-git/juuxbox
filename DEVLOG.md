@@ -77,6 +77,64 @@
 **상태**: ✅ 완료
 **비고**: Qt 네이티브 체크박스 사용 (QTableWidgetItem.setCheckState)
 
+### Q5: 앨범 커버 이미지 탐색
+**날짜**: 2026-01-19
+**요청**: 폴더 스캔 시 커버 이미지(cover.jpg, folder.jpg 등) 탐색 및 저장
+**처리**:
+- `db/scanner.py`: `COVER_FILENAMES` 상수, `_find_cover_image()` 메서드 추가
+- `db/models.py`: tracks 테이블에 `cover_path` 컬럼 추가
+- `db/repository.py`: INSERT 쿼리에 `cover_path` 포함
+**관련 파일**: `db/scanner.py`, `db/models.py`, `db/repository.py`
+**상태**: ✅ 완료
+**비고**: cover.jpg, folder.jpg, front.jpg, album.jpg 등 우선순위 순 탐색
+
+### Q6: 앨범 커버 UI 표시
+**날짜**: 2026-01-19
+**요청**: 곡 목록과 플레이어 바에 앨범 커버 이미지 표시
+**처리**:
+- `ui/song_list.py`: 커버 컬럼 추가 (8컬럼), 40px 썸네일 캐싱
+- `ui/player_bar.py`: 56px 앨범 아트 로드 구현
+- `tests/test_integration.py`: `cover_path` 전달 추가
+**관련 파일**: `ui/song_list.py`, `ui/player_bar.py`, `tests/test_integration.py`
+**상태**: ✅ 완료
+
+### Q7: 포맷 배지로 변경
+**날짜**: 2026-01-19
+**요청**: 리스트의 앨범아트 대신 파일 포맷을 색상 배지로 표시
+**처리**:
+- `ui/song_list.py`: 커버 컬럼 삭제, 포맷 컬럼 추가 (앨범 우측)
+- 포맷별 색상: FLAC=녹색, WAV/AIFF=파란색, DSD=보라색, M4A=오렌지, MP3=빨간색
+- `tests/test_integration.py`: `audio_format` 파라미터 전달 추가
+**관련 파일**: `ui/song_list.py`, `tests/test_integration.py`
+**상태**: ✅ 완료
+
+### Q8: Notion 스타일 UI 리디자인
+**날짜**: 2026-01-19
+**요청**: 테이블 헤더 좌측정렬, Notion 스타일 포맷 태그, List/Table 뷰 토글
+**처리**:
+- `ui/song_list.py`: 
+  - 헤더 좌측정렬 (`text-align: left`)
+  - `FormatTagDelegate` 클래스 추가 (라운드 배경 태그)
+  - List/Table 뷰 토글 버튼
+  - Notion 스타일 호버/선택 효과
+**관련 파일**: `ui/song_list.py`
+**상태**: ✅ 완료
+
+### Q9: 임베디드 앨범아트 추출
+**날짜**: 2026-01-19
+**요청**: 오디오 파일 내장 앨범아트 추출 기능 추가
+**처리**:
+- `db/scanner.py`:
+  - `_extract_embedded_cover()` 메서드 추가
+  - FLAC: `audio.pictures[0].data`
+  - MP3: ID3 APIC 태그
+  - M4A: MP4 covr atom
+  - 캐시 폴더: `~/.juuxbox/covers/`
+  - MP3 포맷 장 (`AUDIO_EXTENSIONS`)
+**관련 파일**: `db/scanner.py`
+**상태**: ✅ 완료
+**비고**: 임베디드 아트 우선, 없으면 폴더 이미지 사용
+
 ---
 
 ## 🔖 참조 파일

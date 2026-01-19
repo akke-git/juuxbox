@@ -84,27 +84,42 @@ class AudioEngine:
             # 기존 재생 중지
             self.stop()
             
-            # 파일 정보 가져오기
-            info = miniaudio.get_file_info(file_path)
+            # mutagen으로 파일 정보 가져오기 (유니코드 경로 지원)
+            import mutagen
+            audio = mutagen.File(file_path)
+            if audio is None:
+                raise ValueError("지원하지 않는 포맷")
+            
+            sample_rate = getattr(audio.info, 'sample_rate', 44100)
+            channels = getattr(audio.info, 'channels', 2)
+            duration = audio.info.length if audio.info else 0
+            bit_depth = getattr(audio.info, 'bits_per_sample', 16)
+            
             self._audio_info = AudioInfo(
-                sample_rate=info.sample_rate,
-                bit_depth=info.sample_width * 8,
-                channels=info.nchannels,
-                duration_seconds=info.duration,
+                sample_rate=sample_rate,
+                bit_depth=bit_depth or 16,
+                channels=channels,
+                duration_seconds=duration,
                 position_seconds=0.0
             )
             
+            # 파일을 bytes로 읽기 (유니코드 경로 지원)
+            with open(file_path, 'rb') as f:
+                self._file_bytes = f.read()
+            
             self._current_file = file_path
-            logger.info(f"파일 로드: {file_path} ({info.sample_rate}Hz, {info.nchannels}ch)")
+            logger.info(f"파일 로드: {file_path} ({sample_rate}Hz, {channels}ch)")
             return True
             
         except Exception as e:
             logger.error(f"파일 로드 실패: {file_path} - {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def play(self) -> bool:
         """재생 시작"""
-        if not self._current_file:
+        if not self._current_file or not hasattr(self, '_file_bytes'):
             logger.warning("재생할 파일이 없습니다")
             return False
         
@@ -113,17 +128,17 @@ class AudioEngine:
             self.stop()
             self._stop_flag.clear()
             
-            # 파일 정보 다시 가져오기
-            info = miniaudio.get_file_info(self._current_file)
+            # bytes로 스트림 생성 (원본 파일 데이터 사용)
+            self._stream = miniaudio.stream_memory(
+                self._file_bytes,
+                output_format=miniaudio.SampleFormat.SIGNED16
+            )
             
-            # 스트림 생성
-            self._stream = miniaudio.stream_file(self._current_file)
-            
-            # 재생 장치 생성 및 시작 (파일 정보 사용)
+            # 재생 장치 생성 및 시작
             self._device = miniaudio.PlaybackDevice(
                 output_format=miniaudio.SampleFormat.SIGNED16,
-                nchannels=info.nchannels,
-                sample_rate=info.sample_rate
+                nchannels=self._audio_info.channels,
+                sample_rate=self._audio_info.sample_rate
             )
             self._device.start(self._stream)
             

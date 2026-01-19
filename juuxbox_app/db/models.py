@@ -18,6 +18,7 @@ def get_connection() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
+    conn.text_factory = str  # 유니코드 문자열 처리
     return conn
 
 
@@ -36,6 +37,7 @@ def create_tables():
             album TEXT,
             album_artist TEXT,
             folder_name TEXT,
+            cover_path TEXT,
             track_number INTEGER,
             disc_number INTEGER,
             year INTEGER,

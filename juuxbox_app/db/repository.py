@@ -21,14 +21,15 @@ class TrackRepository:
         cursor = conn.cursor()
         cursor.execute("""
             INSERT OR REPLACE INTO tracks
-            (file_path, title, artist, album, folder_name, duration_seconds, sample_rate, bit_depth, format)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_path, title, artist, album, folder_name, cover_path, duration_seconds, sample_rate, bit_depth, format)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             track_data.get("file_path"),
             track_data.get("title"),
             track_data.get("artist"),
             track_data.get("album"),
             track_data.get("folder_name"),
+            track_data.get("cover_path"),
             track_data.get("duration_seconds"),
             track_data.get("sample_rate"),
             track_data.get("bit_depth"),
@@ -38,6 +39,16 @@ class TrackRepository:
         track_id = cursor.lastrowid
         conn.close()
         return track_id
+
+    @staticmethod
+    def exists_by_file_path(file_path: str) -> bool:
+        """파일 경로로 트랙 존재 여부 확인"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM tracks WHERE file_path = ?", (file_path,))
+        exists = cursor.fetchone() is not None
+        conn.close()
+        return exists
 
     @staticmethod
     def get_all() -> list[dict]:

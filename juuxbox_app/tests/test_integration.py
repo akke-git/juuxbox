@@ -58,7 +58,9 @@ class IntegratedMainWindow(MainWindow):
                 album=track.get('album', 'Unknown'),
                 folder_name=track.get('folder_name', ''),
                 duration=duration_str,
-                file_path=track.get('file_path', '')
+                file_path=track.get('file_path', ''),
+                audio_format=track.get('format'),
+                cover_path=track.get('cover_path')
             )
         
         # 곡 목록 뷰로 전환
@@ -85,6 +87,7 @@ class IntegratedMainWindow(MainWindow):
         
         # 사이드바: 폴더 추가
         self._sidebar.add_folder_clicked.connect(self._on_folder_added)
+        self._sidebar.add_files_clicked.connect(self._on_files_added)
 
         # 곡 목록: 삭제
         self._song_list.song_delete_requested.connect(self._on_song_delete)
@@ -103,7 +106,8 @@ class IntegratedMainWindow(MainWindow):
         """트랙 변경 시 UI 업데이트"""
         self._player_bar.set_track_info(
             title=track.get('title', 'Unknown'),
-            artist=track.get('artist', 'Unknown')
+            artist=track.get('artist', 'Unknown'),
+            album_art_path=track.get('cover_path')
         )
         self._player_bar.set_audio_spec(
             bit_depth=track.get('bit_depth', 16),
@@ -190,21 +194,73 @@ class IntegratedMainWindow(MainWindow):
             )
             return
         
+        # 중복 필터링 (이미 DB에 있는 파일 스킵)
+        new_tracks = [t for t in tracks if not TrackRepository.exists_by_file_path(t["file_path"])]
+        skipped_count = len(tracks) - len(new_tracks)
+        
+        if not new_tracks:
+            QMessageBox.information(
+                self,
+                "스캔 결과",
+                f"모든 파일이 이미 라이브러리에 있습니다.\n(스캔됨: {len(tracks)}, 스킵: {skipped_count})"
+            )
+            return
+        
         # DB 저장
-        for track in tracks:
+        for track in new_tracks:
             TrackRepository.insert(track)
         
-        print(f"✅ {len(tracks)}개 트랙 추가됨")
+        print(f"✅ {len(new_tracks)}개 트랙 추가됨 (스킵: {skipped_count})")
         
         # UI 업데이트
         self._refresh_song_list()
         
         # 결과 알림
-        QMessageBox.information(
-            self,
-            "스캔 완료",
-            f"✅ {len(tracks)}개 트랙이 추가되었습니다!"
-        )
+        msg = f"✅ {len(new_tracks)}개 트랙이 추가되었습니다!"
+        if skipped_count > 0:
+            msg += f"\n(스킵: {skipped_count}개 - 이미 존재)"
+        QMessageBox.information(self, "스캔 완료", msg)
+
+    def _on_files_added(self, file_paths: list):
+        """개별 파일들 추가"""
+        from pathlib import Path
+        from PySide6.QtWidgets import QMessageBox
+        
+        scanner = LibraryScanner()
+        added_count = 0
+        skipped_count = 0
+        
+        for file_path in file_paths:
+            # 중복 체크
+            if TrackRepository.exists_by_file_path(file_path):
+                skipped_count += 1
+                continue
+            
+            track = scanner._extract_metadata(Path(file_path))
+            if track:
+                TrackRepository.insert(track)
+                added_count += 1
+        
+        if added_count > 0:
+            print(f"✅ {added_count}개 파일 추가됨 (스킵: {skipped_count})")
+            self._refresh_song_list()
+            
+            msg = f"✅ {added_count}개 파일이 추가되었습니다!"
+            if skipped_count > 0:
+                msg += f"\n(스킵: {skipped_count}개 - 이미 존재)"
+            QMessageBox.information(self, "파일 추가 완료", msg)
+        elif skipped_count > 0:
+            QMessageBox.information(
+                self,
+                "파일 추가",
+                f"모든 파일이 이미 라이브러리에 있습니다.\n(스킵: {skipped_count}개)"
+            )
+        else:
+            QMessageBox.warning(
+                self,
+                "파일 추가 실패",
+                "선택한 파일에서 오디오 정보를 추출할 수 없습니다."
+            )
 
     def _refresh_song_list(self):
         """곡 목록 UI 새로고침"""
@@ -221,7 +277,9 @@ class IntegratedMainWindow(MainWindow):
                 album=track.get('album', 'Unknown'),
                 folder_name=track.get('folder_name', ''),
                 duration=duration_str,
-                file_path=track.get('file_path', '')
+                file_path=track.get('file_path', ''),
+                audio_format=track.get('format'),
+                cover_path=track.get('cover_path')
             )
 
     def _on_song_delete(self, file_path: str):

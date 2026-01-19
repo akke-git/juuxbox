@@ -29,6 +29,7 @@ class Sidebar(QFrame):
     playlist_selected = Signal(str)  # playlist_id
     settings_clicked = Signal()
     add_folder_clicked = Signal(str)  # folder_path
+    add_files_clicked = Signal(list)  # file_paths
 
     def __init__(self):
         super().__init__()
@@ -81,6 +82,23 @@ class Sidebar(QFrame):
         """)
         add_folder_btn.clicked.connect(self._on_add_folder_clicked)
         layout.addWidget(add_folder_btn)
+
+        # 파일 추가 버튼
+        add_files_btn = QPushButton("📄 파일 추가")
+        add_files_btn.setFlat(True)
+        add_files_btn.setStyleSheet("""
+            QPushButton {
+                color: #1DB954;
+                padding: 8px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #282828;
+                border-radius: 4px;
+            }
+        """)
+        add_files_btn.clicked.connect(self._on_add_files_clicked)
+        layout.addWidget(add_files_btn)
 
         # 플레이리스트 섹션
         playlist_label = QLabel("플레이리스트")
@@ -137,3 +155,15 @@ class Sidebar(QFrame):
         if folder_path:
             logger.info(f"폴더 선택됨: {folder_path}")
             self.add_folder_clicked.emit(folder_path)
+
+    def _on_add_files_clicked(self):
+        """파일 추가 버튼 클릭 핸들러"""
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "음악 파일 선택",
+            "",
+            "Audio Files (*.flac *.wav *.mp3 *.m4a *.aiff *.aif *.dsf *.dff);;All Files (*)"
+        )
+        if file_paths:
+            logger.info(f"파일 {len(file_paths)}개 선택됨")
+            self.add_files_clicked.emit(file_paths)

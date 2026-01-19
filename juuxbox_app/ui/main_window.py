@@ -109,15 +109,20 @@ class MainWindow(QMainWindow):
 
     def _load_stylesheet(self):
         """QSS 스타일시트 로드"""
-        # TODO: resources/styles/spotify_dark.qss 파일에서 로드
+        # Notion 스타일 폰트 적용 (한글 폰트 포함)
         qss = """
+            * {
+                font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", 
+                             "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕",
+                             Helvetica, Arial, sans-serif;
+            }
             QMainWindow {
-                background-color: #121212;
+                background-color: #191919;
                 color: #FFFFFF;
             }
             QFrame#Sidebar {
-                background-color: #000000;
-                border-right: 1px solid #282828;
+                background-color: #202020;
+                border-right: 1px solid #2d2d2d;
             }
         """
         self.setStyleSheet(qss)

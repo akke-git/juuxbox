@@ -68,6 +68,27 @@ def main():
     app.setApplicationVersion("0.1.0")
     app.setOrganizationName("JuuxBox")
     
+    # 폰트 설정 (한글 지원)
+    from PySide6.QtGui import QFont, QFontDatabase
+    
+    # 사용 가능한 한글 폰트 확인
+    korean_fonts = ["Malgun Gothic", "맑은 고딕", "NanumGothic", "나눔고딕", "Gulim", "굴림"]
+    available_fonts = QFontDatabase.families()
+    
+    selected_font = None
+    for kf in korean_fonts:
+        if kf in available_fonts:
+            selected_font = kf
+            break
+    
+    if selected_font:
+        font = QFont(selected_font, 9)
+    else:
+        font = QFont("Sans Serif", 9)
+    
+    app.setFont(font)
+    print(f"📝 폰트: {font.family()}")
+    
     # 설정 로드
     config = load_config()
     

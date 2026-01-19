@@ -5,11 +5,13 @@ Player Bar
 """
 
 import logging
+from pathlib import Path
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QVBoxLayout, QLabel,
     QPushButton, QSlider, QWidget
 )
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +262,17 @@ class PlayerBar(QFrame):
         """트랙 정보 설정"""
         self._title_label.setText(title)
         self._artist_label.setText(artist)
-        # TODO: 앨범 아트 로드
+        
+        # 앨범 아트 로드
+        if album_art_path and Path(album_art_path).exists():
+            pixmap = QPixmap(album_art_path).scaled(
+                56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            self._album_art.setPixmap(pixmap)
+            self._album_art.setText("")  # 이모지 제거
+        else:
+            self._album_art.setPixmap(QPixmap())  # 픽스맵 클리어
+            self._album_art.setText("🎵")
 
     def set_audio_spec(self, bit_depth: int, sample_rate: int):
         """오디오 스펙 표시"""

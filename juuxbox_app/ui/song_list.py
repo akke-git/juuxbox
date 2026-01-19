@@ -7,12 +7,72 @@ Song List View
 import logging
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QLabel, QAbstractItemView, QMenu, QCheckBox, QPushButton
+    QHeaderView, QLabel, QAbstractItemView, QMenu, QCheckBox, QPushButton,
+    QStyledItemDelegate, QStyle
 )
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QAction
+from PySide6.QtCore import Signal, Qt, QRect
+from PySide6.QtGui import QAction, QColor, QBrush, QPainter, QPen, QFont
 
 logger = logging.getLogger(__name__)
+
+
+class FormatTagDelegate(QStyledItemDelegate):
+    """Notion 스타일 포맷 태그 렌더링"""
+    
+    FORMAT_COLORS = {
+        "FLAC": ("#1DB954", "#0d5c2a"),   # 녹색 (Lossless)
+        "WAV": ("#1E90FF", "#0d4a8a"),    # 파란색 (Lossless)
+        "AIFF": ("#1E90FF", "#0d4a8a"),
+        "AIF": ("#1E90FF", "#0d4a8a"),
+        "DSF": ("#9B59B6", "#5c3470"),    # 보라색 (DSD)
+        "DFF": ("#9B59B6", "#5c3470"),
+        "M4A": ("#FF9500", "#8a5200"),    # 오렌지 (AAC/ALAC)
+        "ALAC": ("#FF9500", "#8a5200"),
+        "MP3": ("#E74C3C", "#8a2d22"),    # 빨간색 (Lossy)
+        "OGG": ("#E74C3C", "#8a2d22"),
+    }
+    
+    def paint(self, painter: QPainter, option, index):
+        text = index.data(Qt.DisplayRole)
+        if not text:
+            return super().paint(painter, option, index)
+        
+        fmt = text.upper()
+        colors = self.FORMAT_COLORS.get(fmt, ("#888888", "#444444"))
+        bg_color = QColor(colors[1])
+        text_color = QColor(colors[0])
+        
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # 태그 배경 (라운드 사각형)
+        tag_text = fmt
+        font = QFont()
+        font.setPixelSize(11)
+        font.setBold(True)
+        painter.setFont(font)
+        
+        fm = painter.fontMetrics()
+        text_width = fm.horizontalAdvance(tag_text)
+        tag_width = text_width + 12
+        tag_height = 20
+        
+        # 중앙 정렬
+        x = option.rect.x() + (option.rect.width() - tag_width) // 2
+        y = option.rect.y() + (option.rect.height() - tag_height) // 2
+        
+        tag_rect = QRect(x, y, tag_width, tag_height)
+        
+        # 배경 그리기
+        painter.setBrush(QBrush(bg_color))
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(tag_rect, 4, 4)
+        
+        # 텍스트 그리기
+        painter.setPen(QPen(text_color))
+        painter.drawText(tag_rect, Qt.AlignCenter, tag_text)
+        
+        painter.restore()
 
 
 class SongListView(QWidget):
@@ -33,75 +93,132 @@ class SongListView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
 
         # 헤더 영역
-        header_layout = QHBoxLayout()
+        header_layout = QVBoxLayout()
+        header_layout.setSpacing(16)  # 제목과 버튼 사이 간격
 
-        self._header = QLabel("모든 곡")
-        self._header.setStyleSheet("color: #FFFFFF; font-size: 24px; font-weight: bold;")
-        header_layout.addWidget(self._header)
+        # 제목 행
+        title_row = QHBoxLayout()
+        self._header = QLabel("All Songs")
+        self._header.setStyleSheet("color: #FFFFFF; font-size: 28px; font-weight: 600;")
+        title_row.addWidget(self._header)
+        title_row.addStretch()
+        header_layout.addLayout(title_row)
 
-        header_layout.addStretch()
+        # 컨트롤 행 (뷰 토글 + 삭제 버튼)
+        control_row = QHBoxLayout()
+
+        # 뷰 토글 버튼 (Notion 스타일)
+        toggle_btn_style = """
+            QPushButton {
+                background-color: transparent;
+                color: #9B9B9B;
+                border: none;
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                color: #FFFFFF;
+                background-color: rgba(255, 255, 255, 0.05);
+                border-radius: 4px;
+            }
+            QPushButton:checked {
+                color: #FFFFFF;
+                background-color: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+            }
+        """
+        
+        self._list_view_btn = QPushButton("☰ List")
+        self._list_view_btn.setCheckable(True)
+        self._list_view_btn.setChecked(False)
+        self._list_view_btn.setStyleSheet(toggle_btn_style)
+        self._list_view_btn.clicked.connect(lambda: self._switch_view("list"))
+        control_row.addWidget(self._list_view_btn)
+
+        self._table_view_btn = QPushButton("⊞ Table")
+        self._table_view_btn.setCheckable(True)
+        self._table_view_btn.setChecked(True)  # 기본값: Table
+        self._table_view_btn.setStyleSheet(toggle_btn_style)
+        self._table_view_btn.clicked.connect(lambda: self._switch_view("table"))
+        control_row.addWidget(self._table_view_btn)
+
+        control_row.addStretch()
 
         # 선택 삭제 버튼
-        self._delete_selected_btn = QPushButton("🗑️ 선택 삭제")
+        self._delete_selected_btn = QPushButton("🗑️ Delete")
         self._delete_selected_btn.setStyleSheet("""
             QPushButton {
-                background-color: #404040;
-                color: #FFFFFF;
-                border: none;
+                background-color: transparent;
+                color: #9B9B9B;
+                border: 1px solid #404040;
                 border-radius: 4px;
-                padding: 8px 16px;
+                padding: 6px 12px;
                 font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #505050;
+                background-color: rgba(255, 255, 255, 0.05);
+                color: #FFFFFF;
             }
             QPushButton:disabled {
-                background-color: #282828;
-                color: #666666;
+                color: #555555;
+                border-color: #333333;
             }
         """)
         self._delete_selected_btn.setEnabled(False)
         self._delete_selected_btn.clicked.connect(self._on_delete_selected)
-        header_layout.addWidget(self._delete_selected_btn)
+        control_row.addWidget(self._delete_selected_btn)
 
-        layout.addLayout(header_layout)
-
-        # 전체 선택 체크박스 (테이블 위)
-        select_all_layout = QHBoxLayout()
-        self._select_all_checkbox = QCheckBox("전체 선택")
-        self._select_all_checkbox.setStyleSheet("""
-            QCheckBox {
-                color: #B3B3B3;
-                font-size: 12px;
-                spacing: 8px;
-            }
-        """)
-        self._select_all_checkbox.stateChanged.connect(self._on_select_all_changed)
-        select_all_layout.addWidget(self._select_all_checkbox)
-
+        # 선택 카운트 라벨
         self._selection_count_label = QLabel("")
-        self._selection_count_label.setStyleSheet("color: #1DB954; font-size: 12px; margin-left: 16px;")
-        select_all_layout.addWidget(self._selection_count_label)
+        self._selection_count_label.setStyleSheet("color: #1DB954; font-size: 12px; margin-left: 8px;")
+        control_row.addWidget(self._selection_count_label)
 
-        select_all_layout.addStretch()
-        layout.addLayout(select_all_layout)
+        header_layout.addLayout(control_row)
+        layout.addLayout(header_layout)
 
         # 테이블
         self._table = QTableWidget()
-        self._table.setColumnCount(7)
-        self._table.setHorizontalHeaderLabels(["✓", "#", "제목", "아티스트", "앨범", "폴더", "시간"])
+        self._table.setColumnCount(8)
+        self._table.setHorizontalHeaderLabels(["✓", "#", "제목", "아티스트", "앨범", "포맷", "폴더", "시간"])
+
+        # 포맷별 색상 정의
+        self._format_colors = {
+            "FLAC": "#1DB954",    # 녹색 (Lossless)
+            "WAV": "#1E90FF",     # 파란색 (Lossless)
+            "AIFF": "#1E90FF",    # 파란색 (Lossless)
+            "AIF": "#1E90FF",     # 파란색 (Lossless)
+            "DSF": "#9B59B6",     # 보라색 (DSD)
+            "DFF": "#9B59B6",     # 보라색 (DSD)
+            "M4A": "#FF9500",     # 오렌지 (AAC/ALAC)
+            "ALAC": "#FF9500",    # 오렌지 (ALAC)
+            "MP3": "#E74C3C",     # 빨간색 (Lossy)
+            "OGG": "#E74C3C",     # 빨간색 (Lossy)
+        }
 
         # 컬럼 크기 설정
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
         self._table.setColumnWidth(0, 40)
         self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
         self._table.setColumnWidth(1, 40)
-        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Fixed)
-        self._table.setColumnWidth(6, 60)
+        # 나머지 컬럼은 사용자가 조절 가능 (Interactive)
+        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Interactive)
+        self._table.setColumnWidth(2, 200)  # 제목
+        self._table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Interactive)
+        self._table.setColumnWidth(3, 150)  # 아티스트
+        self._table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Interactive)
+        self._table.setColumnWidth(4, 150)  # 앨범
+        self._table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Fixed)
+        self._table.setColumnWidth(5, 50)   # 포맷
+        self._table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Interactive)
+        self._table.setColumnWidth(6, 150)  # 폴더
+        self._table.horizontalHeader().setSectionResizeMode(7, QHeaderView.Fixed)
+        self._table.setColumnWidth(7, 50)   # 시간
+        
+        # 마지막 컬럼 늘리기
+        self._table.horizontalHeader().setStretchLastSection(False)
+
+        # 헤더 좌측정렬 (Qt에서 명시적 설정)
+        self._table.horizontalHeader().setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
         self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._table.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -115,25 +232,31 @@ class SongListView(QWidget):
                 outline: none;
             }
             QTableWidget::item {
-                padding: 8px;
-                border-bottom: 1px solid #282828;
+                padding: 8px 12px;
+                border-bottom: 1px solid #2d2d2d;
             }
             QTableWidget::item:selected {
-                background-color: #282828;
+                background-color: rgba(255, 255, 255, 0.05);
                 color: #FFFFFF;
             }
             QTableWidget::item:hover {
-                background-color: #1a1a1a;
+                background-color: rgba(255, 255, 255, 0.03);
             }
             QHeaderView::section {
                 background-color: transparent;
-                color: #B3B3B3;
+                color: #9B9B9B;
                 border: none;
-                border-bottom: 1px solid #282828;
-                padding: 8px;
-                font-size: 11px;
+                border-bottom: 1px solid #2d2d2d;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: 500;
+                text-align: left;
             }
         """)
+
+        # 포맷 컬럼에 Notion 스타일 태그 델리게이트 적용
+        self._format_delegate = FormatTagDelegate()
+        self._table.setItemDelegateForColumn(5, self._format_delegate)
 
         self._table.itemChanged.connect(self._on_item_changed)
         self._table.cellDoubleClicked.connect(self._on_cell_double_clicked)
@@ -146,7 +269,8 @@ class SongListView(QWidget):
         self._header.setText(text)
 
     def add_song(self, index: int, title: str, artist: str, album: str,
-                 folder_name: str, duration: str, file_path: str):
+                 folder_name: str, duration: str, file_path: str, 
+                 audio_format: str = None, cover_path: str = None):
         """곡 추가"""
         row = self._table.rowCount()
         self._table.insertRow(row)
@@ -158,26 +282,45 @@ class SongListView(QWidget):
         check_item.setData(Qt.UserRole, file_path)  # 파일 경로 저장
         self._table.setItem(row, 0, check_item)
 
-        # 나머지 컬럼
-        items = [
-            QTableWidgetItem(str(index)),
-            QTableWidgetItem(title),
-            QTableWidgetItem(artist),
-            QTableWidgetItem(album),
-            QTableWidgetItem(folder_name),
-            QTableWidgetItem(duration),
-        ]
+        # 번호 컬럼
+        num_item = QTableWidgetItem(str(index))
+        num_item.setFlags(num_item.flags() & ~Qt.ItemIsEditable)
+        self._table.setItem(row, 1, num_item)
 
-        for col, item in enumerate(items):
-            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
-            self._table.setItem(row, col + 1, item)
+        # 제목, 아티스트, 앨범
+        title_item = QTableWidgetItem(title)
+        title_item.setFlags(title_item.flags() & ~Qt.ItemIsEditable)
+        self._table.setItem(row, 2, title_item)
+
+        artist_item = QTableWidgetItem(artist)
+        artist_item.setFlags(artist_item.flags() & ~Qt.ItemIsEditable)
+        self._table.setItem(row, 3, artist_item)
+
+        album_item = QTableWidgetItem(album)
+        album_item.setFlags(album_item.flags() & ~Qt.ItemIsEditable)
+        self._table.setItem(row, 4, album_item)
+
+        # 포맷 배지 컬럼 (색상 적용)
+        fmt = audio_format.upper() if audio_format else "?"
+        color = self._format_colors.get(fmt, "#888888")
+        format_item = QTableWidgetItem(fmt)
+        format_item.setFlags(format_item.flags() & ~Qt.ItemIsEditable)
+        format_item.setTextAlignment(Qt.AlignCenter)
+        format_item.setForeground(QBrush(QColor(color)))
+        self._table.setItem(row, 5, format_item)
+
+        # 폴더, 시간
+        folder_item = QTableWidgetItem(folder_name)
+        folder_item.setFlags(folder_item.flags() & ~Qt.ItemIsEditable)
+        self._table.setItem(row, 6, folder_item)
+
+        duration_item = QTableWidgetItem(duration)
+        duration_item.setFlags(duration_item.flags() & ~Qt.ItemIsEditable)
+        self._table.setItem(row, 7, duration_item)
 
     def clear_songs(self):
         """모든 곡 제거"""
         self._table.setRowCount(0)
-        self._select_all_checkbox.blockSignals(True)
-        self._select_all_checkbox.setChecked(False)
-        self._select_all_checkbox.blockSignals(False)
         self._update_selection_count()
 
     def _on_item_changed(self, item):
@@ -214,19 +357,11 @@ class SongListView(QWidget):
         total = self._table.rowCount()
 
         if count > 0:
-            self._selection_count_label.setText(f"({count}/{total}개 선택됨)")
+            self._selection_count_label.setText(f"({count} selected)")
             self._delete_selected_btn.setEnabled(True)
         else:
             self._selection_count_label.setText("")
             self._delete_selected_btn.setEnabled(False)
-
-        # 전체 선택 체크박스 상태 동기화
-        self._select_all_checkbox.blockSignals(True)
-        if total > 0 and count == total:
-            self._select_all_checkbox.setChecked(True)
-        else:
-            self._select_all_checkbox.setChecked(False)
-        self._select_all_checkbox.blockSignals(False)
 
     def get_selected_file_paths(self) -> list:
         """선택된 곡들의 파일 경로 목록"""
@@ -316,3 +451,21 @@ class SongListView(QWidget):
         """전체 삭제 요청"""
         logger.debug("전체 삭제 요청")
         self.all_songs_delete_requested.emit()
+
+    def _switch_view(self, view_type: str):
+        """뷰 모드 전환 (list/table)"""
+        if view_type == "list":
+            self._list_view_btn.setChecked(True)
+            self._table_view_btn.setChecked(False)
+            # List 뷰: 간소화된 컬럼만 표시
+            self._table.setColumnHidden(1, True)   # # 숨김
+            self._table.setColumnHidden(4, True)   # 앨범 숨김
+            self._table.setColumnHidden(6, True)   # 폴더 숨김
+        else:
+            self._list_view_btn.setChecked(False)
+            self._table_view_btn.setChecked(True)
+            # Table 뷰: 모든 컬럼 표시
+            self._table.setColumnHidden(1, False)
+            self._table.setColumnHidden(4, False)
+            self._table.setColumnHidden(6, False)
+        logger.debug(f"뷰 모드 전환: {view_type}")

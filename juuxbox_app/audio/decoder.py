@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 SUPPORTED_FORMATS = {
     ".flac": "FLAC",
     ".wav": "WAV",
+    ".mp3": "MP3",
     ".m4a": "ALAC/AAC",
     ".aiff": "AIFF",
     ".aif": "AIFF",
