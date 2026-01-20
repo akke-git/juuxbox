@@ -21,18 +21,23 @@ class TrackRepository:
         cursor = conn.cursor()
         cursor.execute("""
             INSERT OR REPLACE INTO tracks
-            (file_path, title, artist, album, folder_name, cover_path, duration_seconds, sample_rate, bit_depth, format)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_path, title, artist, album, album_artist, folder_name, cover_path,
+             track_number, genre, duration_seconds, sample_rate, bit_depth, channels, format)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             track_data.get("file_path"),
             track_data.get("title"),
             track_data.get("artist"),
             track_data.get("album"),
+            track_data.get("album_artist", ""),
             track_data.get("folder_name"),
             track_data.get("cover_path"),
+            track_data.get("track_number", 0),
+            track_data.get("genre", ""),
             track_data.get("duration_seconds"),
             track_data.get("sample_rate"),
             track_data.get("bit_depth"),
+            track_data.get("channels", 2),
             track_data.get("format"),
         ))
         conn.commit()

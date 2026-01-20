@@ -35,6 +35,7 @@ class PlayerBar(QFrame):
     prev_clicked = Signal()
     seek_changed = Signal(int)  # position in seconds
     volume_changed = Signal(int)  # 0-100
+    clicked = Signal()  # 플레이바 클릭 (상세 뷰 전환)
 
     def __init__(self):
         super().__init__()
@@ -310,3 +311,11 @@ class PlayerBar(QFrame):
         """초를 M:SS 형식으로 변환"""
         m, s = divmod(seconds, 60)
         return f"{m}:{s:02d}"
+
+    def mousePressEvent(self, event):
+        """마우스 클릭 시 상세 뷰로 전환 (트랙 정보 영역)"""
+        # 트랙 정보 영역 클릭 확인
+        if self._track_info.geometry().contains(event.pos()):
+            self.clicked.emit()
+            logger.debug("플레이바 클릭 → 상세 뷰 전환")
+        super().mousePressEvent(event)

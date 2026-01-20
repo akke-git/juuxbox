@@ -82,11 +82,19 @@ class LibraryScanner:
                 "title": self._get_tag(audio, "title", file_path.stem),
                 "artist": self._get_tag(audio, "artist", "Unknown"),
                 "album": self._get_tag(audio, "album", "Unknown"),
+                "album_artist": self._get_tag(audio, "albumartist", ""),
                 "folder_name": file_path.parent.name,
                 "cover_path": cover_path,
+                "track_number": self._parse_track_number(self._get_tag(audio, "tracknumber", "")),
+                "genre": self._get_tag(audio, "genre", ""),
+                "composer": self._get_tag(audio, "composer", ""),
+                "conductor": self._get_tag(audio, "conductor", ""),
+                "performer": self._get_tag(audio, "performer", ""),
                 "duration_seconds": audio.info.length if audio.info else 0,
                 "sample_rate": getattr(audio.info, "sample_rate", 0),
                 "bit_depth": getattr(audio.info, "bits_per_sample", 16),
+                "bitrate": getattr(audio.info, "bitrate", 0),
+                "channels": getattr(audio.info, "channels", 2),
                 "format": file_path.suffix.upper().replace(".", ""),
             }
         except Exception as e:
@@ -197,3 +205,16 @@ class LibraryScanner:
             pass
         
         return text
+
+    @staticmethod
+    def _parse_track_number(track_str: str) -> int:
+        """트랙 번호 파싱 (예: '5/12' → 5)"""
+        if not track_str:
+            return 0
+        try:
+            # "5/12" 형식 처리
+            if "/" in track_str:
+                return int(track_str.split("/")[0])
+            return int(track_str)
+        except (ValueError, TypeError):
+            return 0

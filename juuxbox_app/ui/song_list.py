@@ -207,12 +207,12 @@ class SongListView(QWidget):
         self._table.setColumnWidth(3, 150)  # 아티스트
         self._table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Interactive)
         self._table.setColumnWidth(4, 150)  # 앨범
-        self._table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Fixed)
-        self._table.setColumnWidth(5, 50)   # 포맷
+        self._table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Interactive)
+        self._table.setColumnWidth(5, 60)   # 포맷
         self._table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Interactive)
         self._table.setColumnWidth(6, 150)  # 폴더
-        self._table.horizontalHeader().setSectionResizeMode(7, QHeaderView.Fixed)
-        self._table.setColumnWidth(7, 50)   # 시간
+        self._table.horizontalHeader().setSectionResizeMode(7, QHeaderView.Interactive)
+        self._table.setColumnWidth(7, 60)   # 시간
         
         # 마지막 컬럼 늘리기
         self._table.horizontalHeader().setStretchLastSection(False)

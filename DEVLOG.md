@@ -135,6 +135,44 @@
 **상태**: ✅ 완료
 **비고**: 임베디드 아트 우선, 없으면 폴더 이미지 사용
 
+### Q10: 음악 상세 뷰 구현
+**날짜**: 2026-01-20
+**요청**: 플레이바 클릭 시 전체화면 상세 뷰, 좌우 이등분 레이아웃
+**처리**:
+- `ui/detail_view.py`: 새 컴포넌트 생성
+  - 좌측: **420px** 앨범아트 (1.5배 확대), 메타데이터, 재생 컨트롤
+  - 우측: 3개 그룹별 메타데이터 표시 + YouTube 버튼
+    - 🎵 기본 정보: 트랙 번호, 장르, 폴더
+    - 🎤 아티스트 정보: 앨범 아티스트, 작곡가, 지휘자, 연주자
+    - 🎧 오디오 정보: 재생시간, 포맷, 샘플레이트, 비트뎁스, 비트레이트, 채널
+  - 상단: Back 버튼으로 메인화면 복귀
+- `db/scanner.py`: 추가 메타데이터 추출 (album_artist, track_number, genre, composer, conductor, performer, bitrate, channels)
+- `db/repository.py`: INSERT 쿼리 업데이트
+- `ui/player_bar.py`: `clicked` 시그널 추가
+- `ui/main_window.py`: `DetailView` 추가
+- `tests/test_integration.py`: 상세 뷰 시그널 연결
+**관련 파일**: `ui/detail_view.py`, `db/scanner.py`, `db/repository.py`, `ui/player_bar.py`, `ui/main_window.py`, `tests/test_integration.py`
+**상태**: ✅ 완료
+**업데이트 (14:12)**: 참조 이미지(screen_1.jpg) 기반 디자인 변경
+  - 반응형 앨범아트 (윈도우 크기에 맞게 조절)
+  - 프로그레스바 + 현재시간/남은시간/포맷 표시
+  - 재생 컨트롤 아이콘 변경 (▐▐ ■ ▶▶)
+  - 하단 2줄 메타 요약 (장르/샘플레이트, 작곡가/채널)
+
+### Q11: YouTube 검색 기능 구현
+**날짜**: 2026-01-20
+**요청**: 상세화면에서 YouTube 검색, 체크박스로 검색 항목 선택, 영상 미리보기
+**처리**:
+- `utils/youtube_search.py`: YouTube 검색 유틸리티 생성 (youtube-search-python 라이브러리)
+- `ui/detail_view.py`: 우측 패널 전면 재작성
+  - 메타데이터 그룹 삭제, YouTube 검색 UI로 대체
+  - 체크박스 옵션 (곡명/가수명/앨범명)
+  - 조회수 상위 5개 결과 표시
+  - QWebEngineView로 영상 임베드 미리보기
+  - 외부 브라우저로 열기 버튼
+**관련 파일**: `utils/youtube_search.py`, `ui/detail_view.py`
+**상태**: ✅ 완료
+
 ---
 
 ## 🔖 참조 파일

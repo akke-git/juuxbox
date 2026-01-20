@@ -16,6 +16,7 @@ from .sidebar import Sidebar
 from .player_bar import PlayerBar
 from .album_view import AlbumView
 from .song_list import SongListView
+from .detail_view import DetailView
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +80,10 @@ class MainWindow(QMainWindow):
         self._main_stack = QStackedWidget()
         self._album_view = AlbumView()
         self._song_list = SongListView()
-        self._main_stack.addWidget(self._album_view)
-        self._main_stack.addWidget(self._song_list)
+        self._detail_view = DetailView()
+        self._main_stack.addWidget(self._album_view)   # index 0
+        self._main_stack.addWidget(self._song_list)    # index 1
+        self._main_stack.addWidget(self._detail_view)  # index 2
         top_layout.addWidget(self._main_stack, 1)
 
         main_layout.addWidget(top_container, 1)
@@ -152,6 +155,20 @@ class MainWindow(QMainWindow):
 
     def _on_repeat(self):
         logger.debug("단축키: 반복")
+
+    def show_detail_view(self):
+        """상세 뷰로 전환"""
+        self._sidebar.setVisible(False)
+        self._player_bar.setVisible(False)  # 플레이어바 숨김
+        self._main_stack.setCurrentWidget(self._detail_view)
+        logger.debug("상세 뷰 표시")
+
+    def show_main_view(self):
+        """메인 뷰(곡 목록)로 전환"""
+        self._sidebar.setVisible(True)
+        self._player_bar.setVisible(True)  # 플레이어바 표시
+        self._main_stack.setCurrentWidget(self._song_list)
+        logger.debug("메인 뷰 표시")
 
     def closeEvent(self, event):
         """윈도우 종료 시 정리"""

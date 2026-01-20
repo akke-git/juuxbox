@@ -93,6 +93,18 @@ class IntegratedMainWindow(MainWindow):
         self._song_list.song_delete_requested.connect(self._on_song_delete)
         self._song_list.songs_delete_requested.connect(self._on_songs_delete)
         self._song_list.all_songs_delete_requested.connect(self._on_all_songs_delete)
+
+        # 플레이바 클릭 → 상세 뷰 전환
+        self._player_bar.clicked.connect(self._show_detail_view)
+
+        # 상세 뷰 시그널
+        self._detail_view.back_clicked.connect(self.show_main_view)
+        self._detail_view.play_clicked.connect(self._on_toggle_play)
+        self._detail_view.pause_clicked.connect(self._on_toggle_play)
+        self._detail_view.stop_clicked.connect(self._controller.stop)
+        self._detail_view.next_clicked.connect(self._controller.next_track)
+        self._detail_view.prev_clicked.connect(self._controller.previous_track)
+        self._detail_view.seek_changed.connect(self._on_seek)
         
     def _on_song_selected(self, file_path: str):
         """곡 선택 시 재생"""
@@ -129,6 +141,29 @@ class IntegratedMainWindow(MainWindow):
         self._player_bar.set_progress(0, int(self._playback_duration))
         self._progress_timer.start()
 
+        # 상세 뷰에 트랙 정보 설정
+        self._current_track = track
+        self._detail_view.set_track_info(
+            title=track.get('title', 'Unknown'),
+            artist=track.get('artist', 'Unknown'),
+            album=track.get('album', ''),
+            folder=track.get('folder_name', ''),
+            audio_format=track.get('format', ''),
+            cover_path=track.get('cover_path'),
+            album_artist=track.get('album_artist', ''),
+            track_number=track.get('track_number', 0),
+            genre=track.get('genre', ''),
+            composer=track.get('composer', ''),
+            conductor=track.get('conductor', ''),
+            performer=track.get('performer', ''),
+            duration_seconds=track.get('duration_seconds', 0),
+            sample_rate=track.get('sample_rate', 0),
+            bit_depth=track.get('bit_depth', 0),
+            bitrate=track.get('bitrate', 0),
+            channels=track.get('channels', 0),
+        )
+        self._detail_view.set_playing_state(True)
+
     def _update_progress(self):
         """진행바 업데이트 (타이머에 의해 호출)"""
         from audio.engine import PlaybackState
@@ -142,9 +177,15 @@ class IntegratedMainWindow(MainWindow):
                 int(self._playback_position), 
                 int(self._playback_duration)
             )
+            # 상세뷰 프로그레스바도 업데이트
+            self._detail_view.set_progress(
+                int(self._playback_position),
+                int(self._playback_duration)
+            )
         elif self._controller.state == PlaybackState.STOPPED:
             self._playback_position = 0.0
             self._player_bar.set_progress(0, int(self._playback_duration))
+            self._detail_view.set_progress(0, int(self._playback_duration))
             self._progress_timer.stop()
         
     def _on_play_pause(self):
@@ -160,6 +201,36 @@ class IntegratedMainWindow(MainWindow):
     def _on_toggle_play(self):
         """재생/일시정지 토글"""
         self._controller.toggle_play()
+        # 상세뷰 버튼 상태 동기화
+        is_playing = self._player_bar._is_playing
+        self._detail_view.set_playing_state(is_playing)
+
+    def _show_detail_view(self):
+        """상세 뷰로 전환"""
+        # 현재 트랙 정보가 있으면 상세뷰에 표시
+        if hasattr(self, '_current_track') and self._current_track:
+            track = self._current_track
+            self._detail_view.set_track_info(
+                title=track.get('title', 'Unknown'),
+                artist=track.get('artist', 'Unknown'),
+                album=track.get('album', ''),
+                folder=track.get('folder_name', ''),
+                audio_format=track.get('format', ''),
+                cover_path=track.get('cover_path'),
+                album_artist=track.get('album_artist', ''),
+                track_number=track.get('track_number', 0),
+                genre=track.get('genre', ''),
+                composer=track.get('composer', ''),
+                conductor=track.get('conductor', ''),
+                performer=track.get('performer', ''),
+                duration_seconds=track.get('duration_seconds', 0),
+                sample_rate=track.get('sample_rate', 0),
+                bit_depth=track.get('bit_depth', 0),
+                bitrate=track.get('bitrate', 0),
+                channels=track.get('channels', 0),
+            )
+            self._detail_view.set_playing_state(self._player_bar._is_playing)
+        self.show_detail_view()
         
     def _on_previous(self):
         """이전 곡"""
