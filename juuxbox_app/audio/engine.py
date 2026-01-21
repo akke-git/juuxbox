@@ -6,6 +6,7 @@ miniaudio를 활용한 오디오 재생 엔진
 
 import logging
 import threading
+import time
 from typing import Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -53,6 +54,12 @@ class AudioEngine:
         self._stream = None
         self._playback_thread: Optional[threading.Thread] = None
         self._stop_flag = threading.Event()
+        
+        # 위치 추적
+        self._position_thread: Optional[threading.Thread] = None
+        self._position_running = False
+        self._playback_start_time: float = 0.0
+        self._paused_position: float = 0.0
         
         # 콜백
         self._on_state_change: Optional[Callable[[PlaybackState], None]] = None
@@ -143,6 +150,13 @@ class AudioEngine:
             self._device.start(self._stream)
             
             self._state = PlaybackState.PLAYING
+            self._audio_info.position_seconds = 0.0
+            self._paused_position = 0.0
+            self._playback_start_time = time.time()
+            
+            # 위치 추적 스레드 시작
+            self._start_position_tracking()
+            
             logger.info(f"재생 시작: {self._current_file}")
             
             if self._on_state_change:
@@ -160,9 +174,13 @@ class AudioEngine:
     def pause(self):
         """일시정지"""
         if self._device and self._state == PlaybackState.PLAYING:
+            # 현재 위치 저장
+            self._paused_position = self._audio_info.position_seconds
+            self._stop_position_tracking()
+            
             self._device.stop()
             self._state = PlaybackState.PAUSED
-            logger.info("일시정지")
+            logger.info(f"일시정지 (위치: {self._paused_position:.1f}초)")
             
             if self._on_state_change:
                 self._on_state_change(self._state)
@@ -172,7 +190,12 @@ class AudioEngine:
         if self._device and self._state == PlaybackState.PAUSED:
             self._device.start(self._stream)
             self._state = PlaybackState.PLAYING
-            logger.info("재생 재개")
+            
+            # 위치 추적 재개
+            self._playback_start_time = time.time()
+            self._start_position_tracking()
+            
+            logger.info(f"재생 재개 (위치: {self._paused_position:.1f}초)")
             
             if self._on_state_change:
                 self._on_state_change(self._state)
@@ -180,6 +203,7 @@ class AudioEngine:
     def stop(self):
         """정지"""
         self._stop_flag.set()
+        self._stop_position_tracking()
         
         if self._device:
             try:
@@ -191,14 +215,23 @@ class AudioEngine:
         
         self._stream = None
         self._state = PlaybackState.STOPPED
+        self._audio_info.position_seconds = 0.0
+        self._paused_position = 0.0
         logger.info("정지")
         
         if self._on_state_change:
             self._on_state_change(self._state)
 
     def seek(self, position_seconds: float):
-        """특정 위치로 이동 (현재 미지원)"""
-        logger.warning("탐색 기능은 아직 지원되지 않습니다")
+        """특정 위치로 이동 (UI 표시용 - 실제 오디오는 미지원)"""
+        # miniaudio 스트리밍에서는 실제 탐색이 어렵지만
+        # UI 표시용으로 위치를 업데이트
+        if 0 <= position_seconds <= self._audio_info.duration_seconds:
+            self._audio_info.position_seconds = position_seconds
+            self._paused_position = position_seconds
+            if self._state == PlaybackState.PLAYING:
+                self._playback_start_time = time.time()
+            logger.info(f"탐색 위치 업데이트: {position_seconds:.1f}초 (UI만 변경, 실제 오디오 미지원)")
 
     def set_on_state_change(self, callback: Callable[[PlaybackState], None]):
         self._on_state_change = callback
@@ -208,6 +241,36 @@ class AudioEngine:
 
     def set_on_track_end(self, callback: Callable[[], None]):
         self._on_track_end = callback
+
+    def _start_position_tracking(self):
+        """재생 위치 추적 스레드 시작"""
+        self._position_running = True
+        
+        def track_position():
+            while self._position_running and self._state == PlaybackState.PLAYING:
+                elapsed = time.time() - self._playback_start_time
+                self._audio_info.position_seconds = self._paused_position + elapsed
+                
+                # 재생 완료 체크
+                if self._audio_info.position_seconds >= self._audio_info.duration_seconds:
+                    self._audio_info.position_seconds = self._audio_info.duration_seconds
+                    self._position_running = False
+                    # 트랙 종료 콜백
+                    if self._on_track_end:
+                        self._on_track_end()
+                    break
+                
+                time.sleep(0.1)  # 100ms 간격
+        
+        self._position_thread = threading.Thread(target=track_position, daemon=True)
+        self._position_thread.start()
+    
+    def _stop_position_tracking(self):
+        """재생 위치 추적 중지"""
+        self._position_running = False
+        if self._position_thread and self._position_thread.is_alive():
+            self._position_thread.join(timeout=0.5)
+        self._position_thread = None
 
     def cleanup(self):
         """리소스 정리"""

@@ -21,6 +21,12 @@ pytest-qt>=4.2.0
 # Logging (enhanced)
 colorlog>=6.7.0
 
+# Web UI (pywebview)
+pywebview>=4.0.0
+
+# YouTube Integration
+youtube-search-python>=1.6.6
+
 # Optional: For future enhancements
 # python-vlc>=3.0.0  # Alternative audio backend
 # watchdog>=3.0.0    # File system monitoring for auto-scan

@@ -56,6 +56,16 @@ class TrackRepository:
         return exists
 
     @staticmethod
+    def get_by_file_path(file_path: str) -> dict | None:
+        """파일 경로로 트랙 조회"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tracks WHERE file_path = ?", (file_path,))
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    @staticmethod
     def get_all() -> list[dict]:
         """모든 트랙 조회"""
         conn = get_connection()
@@ -114,6 +124,94 @@ class TrackRepository:
         conn.close()
         logger.info(f"전체 트랙 삭제: {deleted_count}개")
         return deleted_count
+
+    @staticmethod
+    def get_albums() -> list[dict]:
+        """앨범별 그룹핑 조회 (앨범아트, 아티스트, 트랙 수 포함)"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT album, artist, cover_path, COUNT(*) as track_count,
+                   SUM(duration_seconds) as total_duration
+            FROM tracks
+            WHERE album IS NOT NULL AND album != ''
+            GROUP BY album
+            ORDER BY album
+        """)
+        rows = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    @staticmethod
+    def get_artists() -> list[dict]:
+        """아티스트별 그룹핑 조회 (대표 앨범아트, 앨범 수, 트랙 수 포함)"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT artist, 
+                   (SELECT cover_path FROM tracks t2 
+                    WHERE t2.artist = tracks.artist AND t2.cover_path IS NOT NULL 
+                    LIMIT 1) as cover_path,
+                   COUNT(DISTINCT album) as album_count,
+                   COUNT(*) as track_count
+            FROM tracks
+            WHERE artist IS NOT NULL AND artist != ''
+            GROUP BY artist
+            ORDER BY artist
+        """)
+        rows = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    @staticmethod
+    def get_folders() -> list[dict]:
+        """폴더별 그룹핑 조회 (대표 앨범아트, 트랙 수 포함)"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT folder_name,
+                   (SELECT cover_path FROM tracks t2 
+                    WHERE t2.folder_name = tracks.folder_name AND t2.cover_path IS NOT NULL 
+                    LIMIT 1) as cover_path,
+                   COUNT(*) as track_count
+            FROM tracks
+            WHERE folder_name IS NOT NULL AND folder_name != ''
+            GROUP BY folder_name
+            ORDER BY folder_name
+        """)
+        rows = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    @staticmethod
+    def get_tracks_by_album(album: str) -> list[dict]:
+        """앨범별 트랙 조회"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tracks WHERE album = ? ORDER BY track_number", (album,))
+        rows = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    @staticmethod
+    def get_tracks_by_artist(artist: str) -> list[dict]:
+        """아티스트별 트랙 조회"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tracks WHERE artist = ? ORDER BY album, track_number", (artist,))
+        rows = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    @staticmethod
+    def get_tracks_by_folder(folder_name: str) -> list[dict]:
+        """폴더별 트랙 조회"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tracks WHERE folder_name = ? ORDER BY title", (folder_name,))
+        rows = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return rows
 
 
 class PlaylistRepository:

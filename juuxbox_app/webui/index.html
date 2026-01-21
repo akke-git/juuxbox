@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JuuxBox</title>
+    <!-- Google Fonts: Inter (Spotify-like font) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- 사이드바 -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>Juux <span>Song</span></h1>
+                <span class="subtitle">window exclusive play</span>
+            </div>
+            <nav class="nav-menu">
+                <button class="nav-item active" data-view="library">
+                    <span class="icon">📚</span>
+                    <span>Library</span>
+                </button>
+                <button class="nav-item" data-view="nowplaying">
+                    <span class="icon">🎵</span>
+                    <span>Now Playing</span>
+                </button>
+            </nav>
+            <div class="sidebar-actions">
+                <button id="btn-add-folder" class="btn-action">
+                    <span class="icon">➕</span>
+                    <span>Add Folder</span>
+                </button>
+                <button id="btn-settings" class="btn-action">
+                    <span class="icon">⚙️</span>
+                    <span>Settings</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- 메인 콘텐츠 -->
+        <main class="main-content">
+            <!-- 라이브러리 뷰 -->
+            <section id="view-library" class="view active">
+                <header class="view-header">
+                    <div class="header-left">
+                        <button id="btn-grid-back" class="btn-back" style="display: none;">&lt;</button>
+                        <h2 id="library-title">Library</h2>
+                    </div>
+                    <div class="header-actions">
+                        <span id="track-count" class="track-count">0 tracks</span>
+                        <button id="btn-delete-selected" class="btn-secondary" disabled>Delete Selected</button>
+                    </div>
+                </header>
+
+                <!-- 뷰 모드 탭 -->
+                <div class="view-tabs">
+                    <button class="view-tab active" data-mode="all">All</button>
+                    <button class="view-tab" data-mode="albums">Albums</button>
+                    <button class="view-tab" data-mode="artists">Artists</button>
+                    <button class="view-tab" data-mode="folders">Folders</button>
+                </div>
+
+                <!-- 그리드 컨테이너 (앨범/아티스트/폴더) -->
+                <div id="grid-container" class="grid-container" style="display: none;"></div>
+
+                <!-- 트랙 리스트 (전체) -->
+                <div id="track-list-container" class="track-list-container">
+                    <table class="track-list">
+                        <thead>
+                            <tr>
+                                <th class="col-checkbox"><input type="checkbox" id="select-all"></th>
+                                <th class="col-title">Title</th>
+                                <th class="col-artist">Artist</th>
+                                <th class="col-album">Album</th>
+                                <th class="col-format">Format</th>
+                                <th class="col-duration">Duration</th>
+                                <th class="col-folder">Folder</th>
+                            </tr>
+                        </thead>
+                        <tbody id="track-list-body">
+                            <!-- 동적으로 채워짐 -->
+                        </tbody>
+                    </table>
+                    <div id="empty-state" class="empty-state">
+                        <p>Library is empty</p>
+                        <p class="hint">Click the Add Folder button to add music</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 지금 재생 중 뷰 (상세 뷰) -->
+            <section id="view-nowplaying" class="view">
+                <header class="view-header">
+                    <div class="header-left">
+                        <button id="btn-back" class="btn-back">&lt;</button>
+                        <h2>Now Playing</h2>
+                    </div>
+                </header>
+                <div class="nowplaying-content">
+                    <!-- 좌측: 앨범아트 + 정보 -->
+                    <div class="nowplaying-left">
+                        <div class="album-art-large">
+                            <img id="album-art-img" src="" alt="Album Art">
+                            <div class="album-art-placeholder">🎵</div>
+                        </div>
+                        <div class="track-info-large">
+                            <h3 id="np-title">No track playing</h3>
+                            <p id="np-artist" class="artist"></p>
+                            <p id="np-album" class="album"></p>
+                        </div>
+                        <div class="audio-info">
+                            <span id="np-format" class="format-badge"></span>
+                            <span id="np-sample-rate"></span>
+                            <span id="np-bit-depth"></span>
+                        </div>
+                    </div>
+
+                    <!-- 우측: YouTube 검색 -->
+                    <div class="nowplaying-right">
+                        <div class="youtube-section">
+                            <h4>YouTube Search</h4>
+                            <div class="youtube-search-row">
+                                <div class="youtube-options">
+                                    <label><input type="checkbox" id="yt-use-title" checked> Title</label>
+                                    <label><input type="checkbox" id="yt-use-artist" checked> Artist</label>
+                                    <label><input type="checkbox" id="yt-use-album"> Album</label>
+                                </div>
+                                <button id="btn-youtube-search" class="btn-youtube">Search</button>
+                            </div>
+                            <p id="youtube-status" class="youtube-status"></p>
+                            <ul id="youtube-results" class="youtube-results"></ul>
+                        </div>
+
+                        <!-- YouTube 플레이어 (iframe)-->
+                        <div class="youtube-player-container">
+                            <h4>🎥 Video</h4>
+                            <div id="youtube-player" class="youtube-player">
+                                <p class="placeholder">Select a video from the search results</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 플레이어 바 (하단 고정) -->
+        <footer class="player-bar">
+            <div class="player-track-info" id="player-track-info">
+                <img id="player-album-art" class="player-album-art" src="" alt="">
+                <div class="player-album-art-placeholder">🎵</div>
+                <div class="player-track-details">
+                    <span id="player-title" class="player-title">No track playing</span>
+                    <span id="player-artist" class="player-artist"></span>
+                </div>
+            </div>
+
+            <div class="player-controls">
+                <div class="control-buttons">
+                    <button id="btn-prev" class="btn-control" title="Previous">⏮</button>
+                    <button id="btn-play" class="btn-control btn-play" title="Play">▶</button>
+                    <button id="btn-stop" class="btn-control" title="Stop">⏹</button>
+                    <button id="btn-next" class="btn-control" title="Next">⏭</button>
+                </div>
+                <div class="progress-container">
+                    <span id="current-time" class="time">0:00</span>
+                    <input type="range" id="progress-bar" class="progress-bar" min="0" max="1000" value="0">
+                    <span id="total-time" class="time">0:00</span>
+                </div>
+            </div>
+
+            <div class="player-extra">
+                <div class="audio-output-mode" id="audio-output-mode" title="Audio Output Mode">
+                    <span class="output-icon">🔈</span>
+                    <span id="output-mode-text">Shared</span>
+                </div>
+                <div class="volume-control">
+                    <span class="volume-icon">🔊</span>
+                    <input type="range" id="volume-bar" class="volume-bar" min="0" max="100" value="100">
+                </div>
+            </div>
+        </footer>
+
+        <!-- 설정 모달 -->
+        <div id="settings-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Settings</h3>
+                    <button id="btn-close-settings" class="btn-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <label>Audio Output Device</label>
+                        <select id="audio-device-select">
+                            <option value="System Default">System Default</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>Output Mode</label>
+                        <span id="setting-output-mode" class="setting-value">miniaudio (shared)</span>
+                    </div>
+                    <div class="setting-group">
+                        <label>Sample Rate</label>
+                        <span id="setting-sample-rate" class="setting-value">-</span>
+                    </div>
+                    <div class="setting-group">
+                        <label>Bit Depth</label>
+                        <span id="setting-bit-depth" class="setting-value">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>
