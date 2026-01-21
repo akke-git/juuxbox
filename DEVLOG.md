@@ -175,6 +175,93 @@
 
 ---
 
+## 📅 2026-01-21
+
+### 세션: pywebview UI 개선 및 기능 추가
+
+#### ✅ 완료된 작업
+
+### Q12: 커스텀 SVG 아이콘 적용
+**날짜**: 2026-01-21
+**요청**: Music_Sample/icons 폴더의 아이콘을 재생바에 적용
+**처리**:
+- 13개 SVG 아이콘 파일 복사 (`juuxbox_app/webui/img/icons/`)
+- CSS 인라인 SVG data URI → 외부 SVG 파일 경로로 변경
+- 아이콘 색상: `currentColor` → `white`로 변경
+- 호버 상태에 highlight 버전 적용 (play, pause, stop)
+**관련 파일**: `juuxbox_app/webui/css/style.css`, `juuxbox_app/webui/img/icons/*.svg`
+**상태**: ✅ 완료
+
+### Q13: M4A/AAC 오디오 포맷 지원
+**날짜**: 2026-01-21
+**요청**: M4A 파일 재생 시 `DecodeError: failed to init decoder` 오류 해결
+**처리**:
+- `audio/engine.py`: FFmpeg 기반 디코딩 추가
+- 지원 포맷: M4A, AAC, WMA, OPUS, M4P, M4B
+- `_decode_with_ffmpeg()`: subprocess로 FFmpeg 호출, PCM 데이터 변환
+- `_create_pcm_stream()`: raw PCM 데이터용 generator 스트림 생성
+**관련 파일**: `juuxbox_app/audio/engine.py`
+**상태**: ✅ 완료
+**비고**: FFmpeg 설치 필요 (`winget install FFmpeg`)
+
+### Q14: 재생 기능 버그 수정
+**날짜**: 2026-01-21
+**요청**: 더블클릭/재생버튼 클릭 시 재생되지 않는 문제
+**처리**:
+- `api.py`: `resume()`이 `play()` 호출 → `resume()` 호출로 수정
+- `api.py`: `load()`, `play()` 반환값 체크 및 상세 에러 로깅 추가
+- `app.js`: 아이콘 업데이트 `textContent` → CSS 클래스 토글로 변경
+- `app.js`: `updatePlayButtonIcon()` 함수 추가
+**관련 파일**: `juuxbox_app/api.py`, `juuxbox_app/webui/js/app.js`
+**상태**: ✅ 완료
+
+### Q15: 버튼 사이즈 조정
+**날짜**: 2026-01-21
+**요청**: 플레이 버튼 1.5배, prev/next 60% 사이즈
+**처리**:
+- `.btn-control`: 32px → 48px
+- `.btn-play`: 48px → 72px
+- `.icon-prev`, `.icon-next`: 48px → 29px
+- Stop 버튼 표시 (`display:none` 제거)
+**관련 파일**: `juuxbox_app/webui/css/style.css`, `juuxbox_app/webui/index.html`
+**상태**: ✅ 완료
+
+### Q16: 라이브러리 검색 & 정렬 기능
+**날짜**: 2026-01-21
+**요청**: 검색(제목/아티스트/앨범), 정렬(아티스트/앨범/장르)
+**처리**:
+- `index.html`: 검색 input, 정렬 버튼/드롭다운 메뉴 추가
+- `style.css`: `.view-tabs-container`, `.search-box`, `.sort-control` 스타일 추가
+- `app.js`:
+  - state에 `filteredTracks`, `searchQuery`, `sortBy`, `sortAsc` 추가
+  - `applySearchAndSort()`, `handleSearch()`, `handleSort()` 함수 구현
+  - 300ms debounce 적용
+**관련 파일**: `juuxbox_app/webui/index.html`, `juuxbox_app/webui/css/style.css`, `juuxbox_app/webui/js/app.js`
+**상태**: ✅ 완료
+
+### Q17: UI 버그 수정
+**날짜**: 2026-01-21
+**요청**: 설정 모달 배경 투명, 테이블 헤더 겹침, 앨범/아티스트 뷰 필터링 오류
+**처리**:
+- 설정 모달 배경: `rgba(24,24,24,0.4)` → `rgb(30,30,30)` (불투명)
+- 테이블 헤더: `var(--bg-primary)` → `rgb(18,18,18)` (불투명)
+- 제목 통일: "라이브러리" → "Library"
+- 앨범/아티스트/폴더 트랙 표시: `renderTrackList()` → `applySearchAndSort()` 호출
+**관련 파일**: `juuxbox_app/webui/css/style.css`, `juuxbox_app/webui/js/app.js`
+**상태**: ✅ 완료
+
+#### 📁 변경된 파일 목록
+| 파일 | 변경 내용 |
+|------|----------|
+| `juuxbox_app/api.py` | resume() 수정, 에러 핸들링 추가 |
+| `juuxbox_app/audio/engine.py` | FFmpeg 디코딩, PCM 스트림 생성 |
+| `juuxbox_app/webui/index.html` | 검색/정렬 UI, stop 버튼 표시 |
+| `juuxbox_app/webui/css/style.css` | 아이콘 스타일, 검색/정렬, 배경색 수정 |
+| `juuxbox_app/webui/js/app.js` | 검색/정렬 로직, 아이콘 업데이트, 필터링 수정 |
+| `juuxbox_app/webui/img/icons/*.svg` | 13개 SVG 아이콘 파일 추가 |
+
+---
+
 ## 🔖 참조 파일
 - [프로젝트 명세서](./agnet.md)
 - [진행 상태](./PROJECT_STATUS.md)

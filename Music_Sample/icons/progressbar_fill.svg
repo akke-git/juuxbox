@@ -1,0 +1,5 @@
+<!-- progressbar_fill.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 16" width="400" height="16">
+  <!-- 진행률에 따라 width 값을 변경: 예) 40%면 width=158.4 -->
+  <rect x="2" y="4" width="180" height="8" rx="4" fill="currentColor" opacity="0.90"></rect>
+</svg>

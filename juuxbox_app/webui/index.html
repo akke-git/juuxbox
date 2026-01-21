@@ -17,26 +17,26 @@
         <!-- 사이드바 -->
         <aside class="sidebar">
             <div class="logo">
-                <h1>Juux <span>Song</span></h1>
-                <span class="subtitle">window exclusive play</span>
+                <h1>JuuxBox</h1>
+                <span class="subtitle">Hi-Fi Music Player</span>
             </div>
             <nav class="nav-menu">
                 <button class="nav-item active" data-view="library">
-                    <span class="icon">📚</span>
+                    <span class="icon icon-home"></span>
                     <span>Library</span>
                 </button>
                 <button class="nav-item" data-view="nowplaying">
-                    <span class="icon">🎵</span>
+                    <span class="icon icon-nowplaying"></span>
                     <span>Now Playing</span>
                 </button>
             </nav>
             <div class="sidebar-actions">
                 <button id="btn-add-folder" class="btn-action">
-                    <span class="icon">➕</span>
+                    <span class="icon icon-add"></span>
                     <span>Add Folder</span>
                 </button>
                 <button id="btn-settings" class="btn-action">
-                    <span class="icon">⚙️</span>
+                    <span class="icon icon-settings"></span>
                     <span>Settings</span>
                 </button>
             </div>
@@ -58,11 +58,29 @@
                 </header>
 
                 <!-- 뷰 모드 탭 -->
-                <div class="view-tabs">
-                    <button class="view-tab active" data-mode="all">All</button>
-                    <button class="view-tab" data-mode="albums">Albums</button>
-                    <button class="view-tab" data-mode="artists">Artists</button>
-                    <button class="view-tab" data-mode="folders">Folders</button>
+                <div class="view-tabs-container">
+                    <div class="view-tabs">
+                        <button class="view-tab active" data-mode="all">All</button>
+                        <button class="view-tab" data-mode="albums">Albums</button>
+                        <button class="view-tab" data-mode="artists">Artists</button>
+                        <button class="view-tab" data-mode="folders">Folders</button>
+                    </div>
+                    <div class="view-controls">
+                        <div class="search-box">
+                            <input type="text" id="search-input" placeholder="Search title, artist, album..." />
+                        </div>
+                        <div class="sort-control">
+                            <button id="btn-sort" class="btn-sort" title="Sort">
+                                <span class="sort-icon">↕</span>
+                            </button>
+                            <div id="sort-menu" class="sort-menu hidden">
+                                <button class="sort-option" data-sort="title">Title</button>
+                                <button class="sort-option" data-sort="artist">Artist</button>
+                                <button class="sort-option" data-sort="album">Album</button>
+                                <button class="sort-option" data-sort="genre">Genre</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 그리드 컨테이너 (앨범/아티스트/폴더) -->
@@ -161,10 +179,10 @@
 
             <div class="player-controls">
                 <div class="control-buttons">
-                    <button id="btn-prev" class="btn-control" title="Previous">⏮</button>
-                    <button id="btn-play" class="btn-control btn-play" title="Play">▶</button>
-                    <button id="btn-stop" class="btn-control" title="Stop">⏹</button>
-                    <button id="btn-next" class="btn-control" title="Next">⏭</button>
+                    <button id="btn-prev" class="btn-control icon-prev" title="Previous"></button>
+                    <button id="btn-play" class="btn-control icon-play" title="Play"></button>
+                    <button id="btn-stop" class="btn-control icon-stop" title="Stop"></button>
+                    <button id="btn-next" class="btn-control icon-next" title="Next"></button>
                 </div>
                 <div class="progress-container">
                     <span id="current-time" class="time">0:00</span>

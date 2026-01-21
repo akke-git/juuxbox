@@ -215,11 +215,17 @@ class JuuxBoxAPI:
     def play(self, file_path: str) -> Dict[str, Any]:
         """음악 재생"""
         if not self._engine:
+            logger.error("오디오 엔진이 초기화되지 않음")
             return {"success": False, "error": "오디오 엔진 없음"}
 
         try:
-            self._engine.load(file_path)
-            self._engine.play()
+            if not self._engine.load(file_path):
+                logger.error(f"파일 로드 실패: {file_path}")
+                return {"success": False, "error": "파일 로드 실패"}
+
+            if not self._engine.play():
+                logger.error(f"재생 시작 실패: {file_path}")
+                return {"success": False, "error": "재생 시작 실패"}
 
             # 현재 트랙 정보 저장
             track = TrackRepository.get_by_file_path(file_path)
@@ -242,7 +248,7 @@ class JuuxBoxAPI:
     def resume(self) -> Dict[str, Any]:
         """재생 재개"""
         if self._engine:
-            self._engine.play()
+            self._engine.resume()
             return {"success": True}
         return {"success": False}
 

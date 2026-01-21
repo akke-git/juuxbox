@@ -1,0 +1,4 @@
+<!-- progressbar_track.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 16" width="400" height="16">
+  <rect x="2" y="4" width="396" height="8" rx="4" fill="currentColor" opacity="0.20"></rect>
+</svg>

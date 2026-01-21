@@ -5,13 +5,17 @@
 // 전역 상태
 const state = {
     tracks: [],
+    filteredTracks: [],  // 검색/정렬 적용된 트랙
     currentTrack: null,
     isPlaying: false,
     playlist: [],
     playlistIndex: -1,
     selectedTracks: new Set(),
     viewMode: 'all',  // all, albums, artists, folders
-    gridFilter: null  // 그리드에서 선택한 필터값 (앨범명, 아티스트명, 폴더명)
+    gridFilter: null,  // 그리드에서 선택한 필터값 (앨범명, 아티스트명, 폴더명)
+    searchQuery: '',   // 검색어
+    sortBy: 'title',   // 정렬 기준: title, artist, album, genre
+    sortAsc: true      // 오름차순 정렬
 };
 
 // DOM 요소 캐싱
@@ -90,6 +94,12 @@ function cacheElements() {
     elements.audioDeviceSelect = document.getElementById('audio-device-select');
     elements.outputModeText = document.getElementById('output-mode-text');
     elements.audioOutputMode = document.getElementById('audio-output-mode');
+
+    // 검색 & 정렬
+    elements.searchInput = document.getElementById('search-input');
+    elements.btnSort = document.getElementById('btn-sort');
+    elements.sortMenu = document.getElementById('sort-menu');
+    elements.sortOptions = document.querySelectorAll('.sort-option');
 }
 
 // 이벤트 바인딩
@@ -169,6 +179,24 @@ function bindEvents() {
             closeSettings();
         }
     });
+
+    // 검색
+    elements.searchInput.addEventListener('input', debounce(handleSearch, 300));
+
+    // 정렬 버튼
+    elements.btnSort.addEventListener('click', toggleSortMenu);
+
+    // 정렬 옵션
+    elements.sortOptions.forEach(option => {
+        option.addEventListener('click', () => handleSort(option.dataset.sort));
+    });
+
+    // 정렬 메뉴 외부 클릭 시 닫기
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.sort-control')) {
+            elements.sortMenu.classList.add('hidden');
+        }
+    });
 }
 
 // 트랙 목록 로드
@@ -176,7 +204,7 @@ async function loadTracks() {
     try {
         const tracks = await pywebview.api.get_all_tracks();
         state.tracks = tracks;
-        renderTrackList();
+        applySearchAndSort();
     } catch (e) {
         console.error('트랙 로드 실패:', e);
     }
@@ -187,6 +215,8 @@ function renderTrackList() {
     const tbody = elements.trackListBody;
     tbody.innerHTML = '';
 
+    const tracksToRender = state.filteredTracks;
+
     if (state.tracks.length === 0) {
         elements.emptyState.classList.add('show');
         elements.trackCount.textContent = '0곡';
@@ -194,9 +224,15 @@ function renderTrackList() {
     }
 
     elements.emptyState.classList.remove('show');
-    elements.trackCount.textContent = `${state.tracks.length}곡`;
 
-    state.tracks.forEach((track, index) => {
+    // 필터링된 결과 표시
+    if (state.searchQuery) {
+        elements.trackCount.textContent = `${tracksToRender.length}/${state.tracks.length}곡`;
+    } else {
+        elements.trackCount.textContent = `${state.tracks.length}곡`;
+    }
+
+    tracksToRender.forEach((track, index) => {
         const tr = document.createElement('tr');
         tr.dataset.index = index;
         tr.dataset.path = track.file_path;
@@ -221,8 +257,8 @@ function renderTrackList() {
             <td class="col-folder" title="${escapeHtml(track.folder_name)}">${escapeHtml(track.folder_name)}</td>
         `;
 
-        // 더블클릭으로 재생
-        tr.addEventListener('dblclick', () => playTrack(index));
+        // 더블클릭으로 재생 (filteredTracks 기준 인덱스 사용)
+        tr.addEventListener('dblclick', () => playFilteredTrack(index));
 
         // 체크박스 클릭
         const checkbox = tr.querySelector('.track-checkbox');
@@ -234,8 +270,8 @@ function renderTrackList() {
         tbody.appendChild(tr);
     });
 
-    // 플레이리스트 업데이트
-    state.playlist = [...state.tracks];
+    // 플레이리스트 업데이트 (필터링된 트랙 기준)
+    state.playlist = [...tracksToRender];
 }
 
 // 트랙 재생
@@ -247,7 +283,9 @@ async function playTrack(index) {
     stopYoutubePlayback();
 
     try {
+        console.log('재생 시도:', track.file_path);
         const result = await pywebview.api.play(track.file_path);
+        console.log('재생 결과:', result);
         if (result.success) {
             state.currentTrack = track;
             state.isPlaying = true;
@@ -256,9 +294,11 @@ async function playTrack(index) {
             updatePlayerUI();
             updateNowPlayingUI();
             highlightPlayingTrack();
+        } else {
+            console.error('재생 실패:', result.error);
         }
     } catch (e) {
-        console.error('재생 실패:', e);
+        console.error('재생 예외:', e);
     }
 }
 
@@ -272,8 +312,19 @@ function updatePlayerUI() {
 
     loadCoverImage(track.cover_path, elements.playerAlbumArt);
 
-    elements.btnPlay.textContent = state.isPlaying ? '⏸' : '▶';
+    updatePlayButtonIcon();
     elements.totalTime.textContent = formatDuration(track.duration);
+}
+
+// 재생 버튼 아이콘 업데이트
+function updatePlayButtonIcon() {
+    if (state.isPlaying) {
+        elements.btnPlay.classList.remove('icon-play');
+        elements.btnPlay.classList.add('icon-pause');
+    } else {
+        elements.btnPlay.classList.remove('icon-pause');
+        elements.btnPlay.classList.add('icon-play');
+    }
 }
 
 // 지금 재생 중 UI 업데이트
@@ -334,7 +385,7 @@ async function togglePlay() {
             await pywebview.api.resume();
             state.isPlaying = true;
         }
-        elements.btnPlay.textContent = state.isPlaying ? '⏸' : '▶';
+        updatePlayButtonIcon();
     } catch (e) {
         console.error('재생/일시정지 실패:', e);
     }
@@ -345,7 +396,7 @@ async function stopPlayback() {
     try {
         await pywebview.api.stop();
         state.isPlaying = false;
-        elements.btnPlay.textContent = '▶';
+        updatePlayButtonIcon();
         elements.progressBar.value = 0;
         elements.currentTime.textContent = '0:00';
     } catch (e) {
@@ -469,7 +520,7 @@ function toggleTrackSelection(path, selected) {
 async function deleteSelectedTracks() {
     if (state.selectedTracks.size === 0) return;
 
-    if (!confirm(`${state.selectedTracks.size}개의 트랙을 라이브러리에서 삭제하시겠습니까?`)) {
+    if (!confirm(`${state.selectedTracks.size}개의 트랙을 Library에서 삭제하시겠습니까?`)) {
         return;
     }
 
@@ -611,6 +662,113 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// debounce 유틸리티
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// ===== 검색 & 정렬 =====
+
+// 검색 및 정렬 적용
+function applySearchAndSort() {
+    let filtered = [...state.tracks];
+
+    // 검색 필터 적용
+    if (state.searchQuery) {
+        const query = state.searchQuery.toLowerCase();
+        filtered = filtered.filter(track =>
+            (track.title && track.title.toLowerCase().includes(query)) ||
+            (track.artist && track.artist.toLowerCase().includes(query)) ||
+            (track.album && track.album.toLowerCase().includes(query))
+        );
+    }
+
+    // 정렬 적용
+    filtered.sort((a, b) => {
+        let valA, valB;
+
+        switch (state.sortBy) {
+            case 'artist':
+                valA = (a.artist || '').toLowerCase();
+                valB = (b.artist || '').toLowerCase();
+                break;
+            case 'album':
+                valA = (a.album || '').toLowerCase();
+                valB = (b.album || '').toLowerCase();
+                break;
+            case 'genre':
+                valA = (a.genre || '').toLowerCase();
+                valB = (b.genre || '').toLowerCase();
+                break;
+            case 'title':
+            default:
+                valA = (a.title || '').toLowerCase();
+                valB = (b.title || '').toLowerCase();
+                break;
+        }
+
+        if (valA < valB) return state.sortAsc ? -1 : 1;
+        if (valA > valB) return state.sortAsc ? 1 : -1;
+        return 0;
+    });
+
+    state.filteredTracks = filtered;
+    renderTrackList();
+}
+
+// 검색 처리
+function handleSearch() {
+    state.searchQuery = elements.searchInput.value.trim();
+    applySearchAndSort();
+}
+
+// 정렬 메뉴 토글
+function toggleSortMenu(e) {
+    e.stopPropagation();
+    elements.sortMenu.classList.toggle('hidden');
+}
+
+// 정렬 처리
+function handleSort(sortBy) {
+    // 같은 기준이면 정렬 방향 토글
+    if (state.sortBy === sortBy) {
+        state.sortAsc = !state.sortAsc;
+    } else {
+        state.sortBy = sortBy;
+        state.sortAsc = true;
+    }
+
+    // 활성 옵션 표시
+    elements.sortOptions.forEach(option => {
+        option.classList.toggle('active', option.dataset.sort === sortBy);
+    });
+
+    // 메뉴 닫기
+    elements.sortMenu.classList.add('hidden');
+
+    applySearchAndSort();
+}
+
+// 필터링된 트랙 재생
+function playFilteredTrack(index) {
+    const track = state.filteredTracks[index];
+    if (!track) return;
+
+    // 원본 트랙 배열에서의 인덱스 찾기
+    const originalIndex = state.tracks.findIndex(t => t.file_path === track.file_path);
+    if (originalIndex !== -1) {
+        playTrack(originalIndex);
+    }
+}
+
 // ===== 뷰 모드 전환 =====
 
 // 뷰 모드 전환
@@ -625,7 +783,7 @@ async function switchViewMode(mode) {
 
     // 뒤로가기 버튼 숨김
     elements.btnGridBack.style.display = 'none';
-    elements.libraryTitle.textContent = '라이브러리';
+    elements.libraryTitle.textContent = 'Library';
 
     if (mode === 'all') {
         // 전체 트랙 리스트
@@ -763,8 +921,7 @@ async function showAlbumTracks(album) {
     try {
         const tracks = await pywebview.api.get_tracks_by_album(album);
         state.tracks = tracks;
-        renderTrackList();
-        elements.trackCount.textContent = `${tracks.length}곡`;
+        applySearchAndSort();
     } catch (e) {
         console.error('앨범 트랙 로드 실패:', e);
     }
@@ -781,8 +938,7 @@ async function showArtistTracks(artist) {
     try {
         const tracks = await pywebview.api.get_tracks_by_artist(artist);
         state.tracks = tracks;
-        renderTrackList();
-        elements.trackCount.textContent = `${tracks.length}곡`;
+        applySearchAndSort();
     } catch (e) {
         console.error('아티스트 트랙 로드 실패:', e);
     }
@@ -799,8 +955,7 @@ async function showFolderTracks(folderName) {
     try {
         const tracks = await pywebview.api.get_tracks_by_folder(folderName);
         state.tracks = tracks;
-        renderTrackList();
-        elements.trackCount.textContent = `${tracks.length}곡`;
+        applySearchAndSort();
     } catch (e) {
         console.error('폴더 트랙 로드 실패:', e);
     }
@@ -810,7 +965,7 @@ async function showFolderTracks(folderName) {
 function backFromGrid() {
     state.gridFilter = null;
     elements.btnGridBack.style.display = 'none';
-    elements.libraryTitle.textContent = '라이브러리';
+    elements.libraryTitle.textContent = 'Library';
 
     // 현재 뷰 모드에 따라 그리드 다시 로드
     switchViewMode(state.viewMode);
