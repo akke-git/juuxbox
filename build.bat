@@ -4,26 +4,26 @@ echo JuuxBox Build Script
 echo ========================================
 echo.
 
-REM 가상환경 활성화 (있는 경우)
+REM Activate virtual environment if exists
 if exist "venv\Scripts\activate.bat" (
     call venv\Scripts\activate.bat
 )
 
-REM PyInstaller 설치 확인
+REM Check if PyInstaller is installed
 pip show pyinstaller >nul 2>&1
 if errorlevel 1 (
     echo Installing PyInstaller...
     pip install pyinstaller
 )
 
-REM 빌드 디렉토리로 이동
+REM Navigate to build directory
 cd juuxbox_app
 
-REM 이전 빌드 정리
+REM Clean previous builds
 if exist "dist" rmdir /s /q dist
 if exist "build" rmdir /s /q build
 
-REM PyInstaller 실행
+REM Run PyInstaller
 echo.
 echo Building JuuxBox...
 pyinstaller JuuxBox.spec

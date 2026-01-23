@@ -6,16 +6,31 @@ SQLite 테이블 정의
 
 import sqlite3
 import logging
+import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path.home() / ".juuxbox" / "library.db"
+
+def get_app_dir() -> Path:
+    """애플리케이션 디렉토리 경로 반환"""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller로 빌드된 경우: 실행 파일(.exe) 위치
+        return Path(sys.executable).parent
+    else:
+        # 개발 환경: 스크립트 위치
+        return Path(__file__).parent.parent
+
+
+DB_PATH = get_app_dir() / "juuxbox.db"
 
 
 def get_connection() -> sqlite3.Connection:
     """데이터베이스 연결"""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # 데이터베이스 디렉토리가 없으면 생성
+    if not DB_PATH.parent.exists():
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     conn.text_factory = str  # 유니코드 문자열 처리

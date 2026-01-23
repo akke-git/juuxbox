@@ -18,6 +18,9 @@ a = Analysis(
     binaries=[],
     datas=[
         ('webui', 'webui'),  # 웹 UI 폴더 전체 포함
+        ('install_prerequisites.bat', '.'),  # 설치 스크립트
+        ('README_DEPLOY.txt', '.'),  # 배포용 README
+        ('installers', 'installers'),  # 설치 파일들 (VC++, WebView2)
     ],
     hiddenimports=[
         'miniaudio',
